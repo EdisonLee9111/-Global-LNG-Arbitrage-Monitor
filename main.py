@@ -33,6 +33,8 @@ from src import config
 from src.data_loader import load_all_market_data, fetch_central_bank_text
 from src.lng_economics import LNGCalculator
 from src.macro_sentiment import MacroSentimentAnalyzer
+from src.parameter_inventory import build_step1_inventory
+from src.distribution_selection import build_step2_distribution_selection
 from src import visualizer
 
 
@@ -70,15 +72,70 @@ def run_market_data_pipeline():
     return market_data
 
 
+def run_step1_parameter_inventory(market_data):
+    """
+    Step 1b: Parameter Inventory and Modeling Priority Classification
+    """
+    print("\n" + "█" * 60)
+    print("  STEP 1b: Netback Parameter Inventory")
+    print("█" * 60)
+
+    result = build_step1_inventory(market_data, output_dir=config.OUTPUT_DIR)
+    inv = result["inventory_df"]
+
+    print(f"\n  ✓ Step 1 inventory generated with {len(inv)} parameters")
+    print(f"  ✓ CSV: {result['csv_path']}")
+    print(f"  ✓ Markdown: {result['md_path']}")
+    print(f"  ✓ Must-model set: {', '.join(result['priority_scope']['first_version_model'])}")
+    return result
+
+
+def run_step2_distribution_selection(
+    market_data,
+    current_charter_rate: float | None = None,
+    current_fuel_cost: float | None = None,
+):
+    """
+    Step 2: Distribution Family Selection for Uncertain Inputs
+
+    Parameters
+    ----------
+    current_charter_rate : float or None
+        Live market charter rate (USD/day), e.g. Spark25s spot.
+        Falls back to config.DEFAULT_CHARTER_RATE.
+    current_fuel_cost : float or None
+        Live market fuel cost (USD/day), e.g. VLSFO bunker quote.
+        Falls back to config.DEFAULT_FUEL_COST_PER_DAY.
+    """
+    print("\n" + "█" * 60)
+    print("  STEP 2: Distribution Family Selection")
+    print("█" * 60)
+
+    result = build_step2_distribution_selection(
+        market_data,
+        output_dir=config.OUTPUT_DIR,
+        horizon_days=(30, 60),
+        current_charter_rate=current_charter_rate,
+        current_fuel_cost=current_fuel_cost,
+    )
+    df = result["distribution_df"]
+
+    print(f"\n  ✓ Step 2 distribution plan generated with {len(df)} parameter groups")
+    print(f"  ✓ CSV: {result['csv_path']}")
+    print(f"  ✓ Markdown: {result['md_path']}")
+    print(f"  ✓ Horizon: {result['horizon_days'][0]}-{result['horizon_days'][1]} days")
+    return result
+
+
 def run_lng_economics(market_data):
     """
-    Step 2: LNG Economics Calculation
+    Step 3: LNG Economics Calculation
     - Calculate shipping costs for each route
     - Calculate Netback (netback value)
     - Determine arbitrage window status
     """
     print("\n" + "█" * 60)
-    print("  STEP 2: LNG Economics Calculation")
+    print("  STEP 3: LNG Economics Calculation")
     print("█" * 60)
     
     # Initialize calculator (using current market parameters)
@@ -166,13 +223,13 @@ def run_lng_economics(market_data):
 
 def run_nlp_analysis(market_data):
     """
-    Step 3: NLP Macro Sentiment Analysis
+    Step 4: NLP Macro Sentiment Analysis
     - Analyze Fed/BOJ meeting minutes text
     - Calculate hawk/dove tendency
     - Assess impact on USD/JPY
     """
     print("\n" + "█" * 60)
-    print("  STEP 3: NLP Macro Sentiment Analysis")
+    print("  STEP 4: NLP Macro Sentiment Analysis")
     print("█" * 60)
     
     # Fetch central bank text
@@ -209,10 +266,10 @@ def run_nlp_analysis(market_data):
 
 def generate_charts(market_data, lng_results, nlp_results):
     """
-    Step 4: Generate Professional Charts
+    Step 5: Generate Professional Charts
     """
     print("\n" + "█" * 60)
-    print("  STEP 4: Generating Visualization Charts")
+    print("  STEP 5: Generating Visualization Charts")
     print("█" * 60)
     
     # Chart 1: Global natural gas spreads
@@ -256,11 +313,11 @@ def generate_charts(market_data, lng_results, nlp_results):
 
 def print_trading_signal(lng_results, nlp_results):
     """
-    Step 5: Output Trading Signal
+    Step 6: Output Trading Signal
     Integrate LNG arbitrage analysis and macro sentiment to provide recommendations.
     """
     print("\n" + "█" * 60)
-    print("  STEP 5: Trading Signal (TRADING SIGNAL)")
+    print("  STEP 6: Trading Signal (TRADING SIGNAL)")
     print("█" * 60)
     
     nb_eu = lng_results["nb_europe"]
@@ -334,17 +391,19 @@ def main():
         
         # Step 1: Load market data
         market_data = run_market_data_pipeline()
+        run_step1_parameter_inventory(market_data)
+        run_step2_distribution_selection(market_data)
         
-        # Step 2: LNG economics calculation
+        # Step 3: LNG economics calculation
         lng_results = run_lng_economics(market_data)
         
-        # Step 3: NLP macro sentiment analysis
+        # Step 4: NLP macro sentiment analysis
         nlp_results = run_nlp_analysis(market_data)
         
-        # Step 4: Generate charts
+        # Step 5: Generate charts
         generate_charts(market_data, lng_results, nlp_results)
         
-        # Step 5: Output trading signal
+        # Step 6: Output trading signal
         print_trading_signal(lng_results, nlp_results)
         
         print("=" * 60)

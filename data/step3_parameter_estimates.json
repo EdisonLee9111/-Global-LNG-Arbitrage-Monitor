@@ -1,0 +1,149 @@
+[
+  {
+    "name": "HH_Price",
+    "method": "historical",
+    "distribution_type": "ou",
+    "params": {
+      "s0": 3.001790358782581,
+      "kappa": 0.03,
+      "theta": 3.000658781647323,
+      "sigma": 0.055117776226450775,
+      "horizon_mean": 3.000952131998808,
+      "horizon_std": 0.2173246793242009,
+      "horizon_p05": 2.6434530345104976,
+      "horizon_p95": 3.3584512294871187,
+      "gbm_mu_daily": 0.00028960231422071696,
+      "gbm_sigma_daily": 0.026210636275041412,
+      "gbm_horizon_p05": 2.2424057964925823,
+      "gbm_horizon_p95": 3.9988939519974913
+    },
+    "horizon_days": 45,
+    "override": {},
+    "_base_params": {}
+  },
+  {
+    "name": "TTF_Price",
+    "method": "historical",
+    "distribution_type": "ou",
+    "params": {
+      "s0": 9.11115372775442,
+      "kappa": 0.03,
+      "theta": 9.021239591950254,
+      "sigma": 0.17758783199668737,
+      "horizon_mean": 9.044548955951877,
+      "horizon_std": 0.7002136385545786,
+      "horizon_p05": 7.892697520529595,
+      "horizon_p95": 10.196400391374159,
+      "gbm_mu_daily": 0.00041744858708707747,
+      "gbm_sigma_daily": 0.028933642919044676,
+      "gbm_horizon_p05": 6.620467006024945,
+      "gbm_horizon_p95": 12.53758771157701
+    },
+    "horizon_days": 45,
+    "override": {},
+    "_base_params": {}
+  },
+  {
+    "name": "JKM_Price",
+    "method": "historical",
+    "distribution_type": "ou",
+    "params": {
+      "s0": 10.088619844700306,
+      "kappa": 0.03,
+      "theta": 9.968275641331086,
+      "sigma": 0.18812369607055215,
+      "horizon_mean": 9.999473703979746,
+      "horizon_std": 0.7417556498260206,
+      "horizon_p05": 8.779285660015942,
+      "horizon_p95": 11.21966174794355,
+      "gbm_mu_daily": 0.0004101862962351109,
+      "gbm_sigma_daily": 0.027047591825607797,
+      "gbm_horizon_p05": 7.5002473169986414,
+      "gbm_horizon_p95": 13.624588007114742
+    },
+    "horizon_days": 45,
+    "override": {},
+    "_base_params": {}
+  },
+  {
+    "name": "Charter_Rate",
+    "method": "historical",
+    "distribution_type": "lognormal",
+    "params": {
+      "s0": 60000.0,
+      "mu_ln": 10.940849841204239,
+      "sigma_ln": 0.35,
+      "sigma_daily": 0.02204792759220492,
+      "horizon_median": 59347.32581847542,
+      "horizon_p05": 46530.51254406055,
+      "horizon_p95": 75694.52579034322,
+      "source": 0.0
+    },
+    "horizon_days": 45,
+    "override": {},
+    "_base_params": {}
+  },
+  {
+    "name": "USD_JPY",
+    "method": "historical",
+    "distribution_type": "gbm",
+    "params": {
+      "s0": 148.81964716917642,
+      "mu_daily": 0.0003112251101545688,
+      "sigma_daily": 0.029788112418474837,
+      "annualized_vol": 0.4728716249119153,
+      "horizon_mean": 150.91854905770663,
+      "horizon_p05": 106.49133640892195,
+      "horizon_p95": 205.50841966464048
+    },
+    "horizon_days": 45,
+    "override": {},
+    "_base_params": {}
+  },
+  {
+    "name": "Fuel_Cost",
+    "method": "historical",
+    "distribution_type": "lognormal",
+    "params": {
+      "s0": 15000.0,
+      "mu_ln": 9.570805480084347,
+      "sigma_ln": 0.3,
+      "sigma_daily": 0.01889822365046136,
+      "horizon_median": 14879.947286377233,
+      "horizon_p05": 12079.051539259368,
+      "horizon_p95": 18330.315962783054,
+      "source": 0.0
+    },
+    "horizon_days": 45,
+    "override": {},
+    "_base_params": {}
+  },
+  {
+    "name": "Voyage_Delay",
+    "method": "historical",
+    "distribution_type": "gamma",
+    "params": {
+      "gamma_k": 2.0,
+      "gamma_theta": 1.5,
+      "panama_shift": 3.0,
+      "mean_delay": 6.0
+    },
+    "horizon_days": 45,
+    "override": {},
+    "_base_params": {}
+  },
+  {
+    "name": "BOG_Rate",
+    "method": "manual",
+    "distribution_type": "triangular",
+    "params": {
+      "low": 0.0008,
+      "mode": 0.0014990000000000001,
+      "high": 0.0015,
+      "mean": 0.0012663333333333335
+    },
+    "horizon_days": 45,
+    "override": {},
+    "_base_params": {}
+  }
+]

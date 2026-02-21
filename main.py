@@ -35,6 +35,9 @@ from src.lng_economics import LNGCalculator
 from src.macro_sentiment import MacroSentimentAnalyzer
 from src.parameter_inventory import build_step1_inventory
 from src.distribution_selection import build_step2_distribution_selection
+from src.parameter_estimation import build_step3_parameter_estimates
+from src.correlation_structure import build_step4_correlation_structure
+from src.validation_calibration import build_step5_validation
 from src import visualizer
 
 
@@ -127,15 +130,152 @@ def run_step2_distribution_selection(
     return result
 
 
+def run_step3_parameter_estimation(
+    market_data,
+    current_charter_rate: float | None = None,
+    current_fuel_cost: float | None = None,
+    overrides: dict | None = None,
+):
+    """
+    Step 3: Estimate Distribution Parameters for Monte Carlo Inputs
+
+    Parameters
+    ----------
+    overrides : dict or None
+        Trader manual overrides, keyed by parameter name, e.g.
+        {"HH_Price": {"sigma": 0.50}, "Charter_Rate": {"s0": 85000}}
+    """
+    print("\n" + "█" * 60)
+    print("  STEP 3: Parameter Estimation")
+    print("█" * 60)
+
+    result = build_step3_parameter_estimates(
+        market_data,
+        output_dir=config.OUTPUT_DIR,
+        horizon_days=45,
+        current_charter_rate=current_charter_rate,
+        current_fuel_cost=current_fuel_cost,
+        overrides=overrides,
+    )
+
+    print(f"\n  ✓ Estimated {len(result['estimates'])} parameter distributions")
+    print(f"  ✓ Horizon: {result['estimates'][0].horizon_days} trading days")
+    print(f"  ✓ CSV:  {result['csv_path']}")
+    print(f"  ✓ JSON: {result['json_path']}")
+    print(f"  ✓ MD:   {result['md_path']}")
+
+    n_overridden = sum(1 for e in result["estimates"] if e.overridden_keys)
+    if n_overridden:
+        print(f"  ✓ Trader overrides applied to {n_overridden} parameter(s)")
+    else:
+        print("  ✓ No trader overrides (pure historical estimation)")
+
+    for e in result["estimates"]:
+        p = e.params
+        tag = " [OVERRIDE]" if e.overridden_keys else ""
+        if e.distribution_type == "ou":
+            print(f"    {e.name:12s}  OU  S0={p['s0']:.2f}  theta={p['theta']:.2f}  "
+                  f"T-range=[{p['horizon_p05']:.2f}, {p['horizon_p95']:.2f}]{tag}")
+        elif e.distribution_type in ("lognormal", "gbm"):
+            p05 = p.get("horizon_p05", p.get("p05", 0))
+            p95 = p.get("horizon_p95", p.get("p95", 0))
+            print(f"    {e.name:12s}  {e.distribution_type:5s}  S0={p['s0']:.2f}  "
+                  f"T-range=[{p05:.2f}, {p95:.2f}]{tag}")
+        elif e.distribution_type == "gamma":
+            print(f"    {e.name:12s}  Gamma  mean_delay={p['mean_delay']:.1f}d{tag}")
+        elif e.distribution_type == "triangular":
+            print(f"    {e.name:12s}  Tri  [{p['low']:.4f}, {p['mode']:.4f}, {p['high']:.4f}]{tag}")
+
+    return result
+
+
+def run_step4_correlation_structure(market_data):
+    """
+    Step 4: Correlation Structure Estimation (Gaussian Copula)
+    """
+    print("\n" + "█" * 60)
+    print("  STEP 4: Correlation Structure")
+    print("█" * 60)
+
+    result = build_step4_correlation_structure(
+        market_data,
+        output_dir=config.OUTPUT_DIR,
+        n_demo_samples=5_000,
+    )
+
+    factors = result["factor_names"]
+    corr = result["corr_matrix"]
+    print(f"\n  ✓ {len(factors)} factors: {', '.join(factors)}")
+    print(f"  ✓ Cholesky decomposition successful")
+    print(f"  ✓ Demo copula sample: {result['demo_uniforms'].shape[0]:,} draws")
+    print(f"  ✓ CSV:  {result['csv_path']}")
+    print(f"  ✓ JSON: {result['json_path']}")
+    print(f"  ✓ MD:   {result['md_path']}")
+
+    print("\n  Correlation matrix:")
+    for i, fi in enumerate(factors):
+        vals = "  ".join(f"{corr.values[i,j]:+.2f}" for j in range(len(factors)))
+        print(f"    {fi:14s}  {vals}")
+
+    return result
+
+
+def run_step5_validation(market_data, step3_result, step4_result):
+    """
+    Step 5: Validation & Calibration of Distribution Assumptions
+    """
+    print("\n" + "█" * 60)
+    print("  STEP 5: Validation & Calibration")
+    print("█" * 60)
+
+    result = build_step5_validation(
+        estimates=step3_result["estimates"],
+        cholesky_L=step4_result["cholesky_L"],
+        factor_names=step4_result["factor_names"],
+        market_data=market_data,
+        output_dir=config.OUTPUT_DIR,
+        n_samples=10_000,
+    )
+
+    # ── A: Range checks ──
+    print(f"\n  A. Range Check ({len(result['scenarios']):,} draws)")
+    all_pass = True
+    for r in result["range_checks"]:
+        flag = "  " if r.status == "PASS" else ">>"
+        print(f"    {flag} {r.parameter:14s}  P1={r.p01:>10.2f}  P99={r.p99:>10.2f}  [{r.bound_low:,.0f}, {r.bound_high:,.0f}]  {r.status}")
+        if r.status != "PASS":
+            all_pass = False
+    if all_pass:
+        print("    All range checks PASSED")
+
+    # ── B: Coverage checks (rolling backtest) ──
+    print(f"\n  B. Historical Coverage — Rolling Backtest (90% CI)")
+    for c in result["coverage_checks"]:
+        print(f"    {c.parameter:14s}  avg CI=[{c.avg_ci_low:.2f}, {c.avg_ci_high:.2f}]  "
+              f"hit {c.coverage_pct:.1f}% of {c.n_windows} windows  {c.status}")
+
+    # ── C: Extreme audit ──
+    print(f"\n  C. Extreme Scenarios (5 lowest + 5 highest per factor)")
+    for param, df in result["extremes"].items():
+        lo = df[df["_extreme_type"] == "low"][param]
+        hi = df[df["_extreme_type"] == "high"][param]
+        if len(lo) and len(hi):
+            print(f"    {param:14s}  worst_low={lo.iloc[0]:.2f}  worst_high={hi.iloc[-1]:.2f}")
+
+    print(f"\n  ✓ CSV:  {result['csv_path']}")
+    print(f"  ✓ MD:   {result['md_path']}")
+    return result
+
+
 def run_lng_economics(market_data):
     """
-    Step 3: LNG Economics Calculation
+    Step 6 (original LNG Economics): LNG Economics Calculation
     - Calculate shipping costs for each route
     - Calculate Netback (netback value)
     - Determine arbitrage window status
     """
     print("\n" + "█" * 60)
-    print("  STEP 3: LNG Economics Calculation")
+    print("  STEP 6: LNG Economics Calculation")
     print("█" * 60)
     
     # Initialize calculator (using current market parameters)
@@ -223,13 +363,13 @@ def run_lng_economics(market_data):
 
 def run_nlp_analysis(market_data):
     """
-    Step 4: NLP Macro Sentiment Analysis
+    Step 5: NLP Macro Sentiment Analysis
     - Analyze Fed/BOJ meeting minutes text
     - Calculate hawk/dove tendency
     - Assess impact on USD/JPY
     """
     print("\n" + "█" * 60)
-    print("  STEP 4: NLP Macro Sentiment Analysis")
+    print("  STEP 6: NLP Macro Sentiment Analysis")
     print("█" * 60)
     
     # Fetch central bank text
@@ -266,10 +406,10 @@ def run_nlp_analysis(market_data):
 
 def generate_charts(market_data, lng_results, nlp_results):
     """
-    Step 5: Generate Professional Charts
+    Step 6: Generate Professional Charts
     """
     print("\n" + "█" * 60)
-    print("  STEP 5: Generating Visualization Charts")
+    print("  STEP 7: Generating Visualization Charts")
     print("█" * 60)
     
     # Chart 1: Global natural gas spreads
@@ -313,11 +453,11 @@ def generate_charts(market_data, lng_results, nlp_results):
 
 def print_trading_signal(lng_results, nlp_results):
     """
-    Step 6: Output Trading Signal
+    Step 7: Output Trading Signal
     Integrate LNG arbitrage analysis and macro sentiment to provide recommendations.
     """
     print("\n" + "█" * 60)
-    print("  STEP 6: Trading Signal (TRADING SIGNAL)")
+    print("  STEP 8: Trading Signal (TRADING SIGNAL)")
     print("█" * 60)
     
     nb_eu = lng_results["nb_europe"]
@@ -393,17 +533,20 @@ def main():
         market_data = run_market_data_pipeline()
         run_step1_parameter_inventory(market_data)
         run_step2_distribution_selection(market_data)
+        step3_result = run_step3_parameter_estimation(market_data)
+        step4_result = run_step4_correlation_structure(market_data)
+        run_step5_validation(market_data, step3_result, step4_result)
         
-        # Step 3: LNG economics calculation
+        # Step 6: LNG economics calculation
         lng_results = run_lng_economics(market_data)
         
-        # Step 4: NLP macro sentiment analysis
+        # Step 6: NLP macro sentiment analysis
         nlp_results = run_nlp_analysis(market_data)
         
-        # Step 5: Generate charts
+        # Step 7: Generate charts
         generate_charts(market_data, lng_results, nlp_results)
         
-        # Step 6: Output trading signal
+        # Step 8: Output trading signal
         print_trading_signal(lng_results, nlp_results)
         
         print("=" * 60)

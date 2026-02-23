@@ -1,6 +1,6 @@
 # Global LNG Arbitrage Monitor
 
-A quantitative analytics pipeline for monitoring US Gulf Coast LNG export arbitrage opportunities to Europe and Asia. The pipeline runs from raw market data ingestion through stochastic parameter modeling, correlation structure estimation, and Monte Carlo validation — ending with a real-time trading signal.
+A quantitative analytics pipeline for monitoring US Gulf Coast LNG export arbitrage opportunities to Europe and Asia. The pipeline runs from raw market data ingestion through stochastic parameter modeling, correlation structure estimation, and **10,000-scenario Monte Carlo simulation** — producing full spread/TCE probability distributions, Real Option valuation, and probabilistic trading signals.
 
 ## Pipeline Overview
 
@@ -12,10 +12,11 @@ A quantitative analytics pipeline for monitoring US Gulf Coast LNG export arbitr
 | 3 | `parameter_estimation` | Machine-readable `ParameterDistribution` objects with horizon projections; trader override support |
 | 4 | `correlation_structure` | Historical correlation matrix → Gaussian Copula Cholesky factor |
 | 5 | `validation_calibration` | Range checks, rolling-backtest coverage, extreme scenario audit |
-| 6 | `lng_economics` | Netback & arb spread for 3 routes; historical Netback series |
+| **6-MC** | **`monte_carlo_spread`** | **Vectorized Netback over 10,000 scenarios → Spread/TCE distributions, JERA margin, Real Option, sensitivity** |
+| 6 | `lng_economics` | Single-point Netback & arb spread for 3 routes (reference baseline) |
 | 7 | `macro_sentiment` | Fed/BOJ hawkish-dovish scoring; sentiment × USD/JPY correlation |
 | 8 | `visualizer` | 4 publication-quality PNG charts |
-| 8 | `main` | Console trading signal: route recommendation + FX risk flag |
+| **8b** | **`main`** | **Probabilistic trading signal: P(profit), VaR/CVaR, option premium, JERA divert alert** |
 
 ---
 
@@ -23,12 +24,13 @@ A quantitative analytics pipeline for monitoring US Gulf Coast LNG export arbitr
 
 ```
 LNG_Arbitrage_Monitor/
-├── main.py                              # Pipeline entry point (Steps 1–8)
+├── main.py                              # Pipeline entry point (Steps 1–8b)
 ├── requirements.txt
 ├── src/
 │   ├── config.py                        # Physical constants, routes, tickers, NLP dictionaries
 │   ├── data_loader.py                   # Yahoo Finance ingestion + JKM synthesis + OU fallbacks
 │   ├── lng_economics.py                 # LNGCalculator: voyage, BOG, shipping cost, Netback
+│   ├── monte_carlo_spread.py            # Layer 2: vectorized MC Netback, TCE, JERA, Real Option
 │   ├── macro_sentiment.py               # MacroSentimentAnalyzer: TextBlob + keyword + FX correlation
 │   ├── parameter_inventory.py           # Step 1b: classify inputs by volatility & priority
 │   ├── distribution_selection.py        # Step 2: fit distribution families
@@ -43,6 +45,8 @@ LNG_Arbitrage_Monitor/
     ├── step3_parameter_estimates.csv / .json / .md
     ├── step4_correlation_matrix.csv / step4_correlation_structure.json / .md
     ├── step5_validation_scenarios.csv / step5_validation_report.md
+    ├── mc_spread_scenarios.csv          # 10,000 enriched scenarios with spreads/TCE/JERA
+    ├── mc_spread_report.md              # Full distribution statistics report
     ├── 01_global_gas_spreads.png
     ├── 02_arbitrage_netback.png
     ├── 03_macro_sentiment.png
@@ -108,8 +112,6 @@ Default r = 0.15%/day. BOG is treated as opportunity cost even on MEGI/X-DF vess
 Netback = Dest_Price × (1 − BOG_ratio) − Shipping_$/MMBtu − Canal_$/MMBtu − Liquefaction_$/MMBtu
 ```
 
-**Arbitrage signal:** `Spread > $1.00` → STRONG BUY · `$0–$1.00` → MARGINAL · `≤ $0` → NO ARB
-
 **Routes:**
 
 | Route | Distance | Canal |
@@ -117,6 +119,70 @@ Netback = Dest_Price × (1 − BOG_ratio) − Shipping_$/MMBtu − Canal_$/MMBtu
 | US Gulf → Rotterdam | 5,000 nm | None |
 | US Gulf → Tokyo (Panama) | 9,200 nm | Panama ($400k) |
 | US Gulf → Tokyo (COGH) | 14,500 nm | None |
+
+---
+
+### `src/monte_carlo_spread.py` — Layer 2: MC Spread Engine
+
+Bridges Step 5 correlated scenarios (10,000 draws) into the Netback economics engine, transforming single-point values into full probability distributions.
+
+**Architecture:**
+
+| Phase | Function | Description |
+|-------|----------|-------------|
+| A (scalar) | `resolve_route_constants()` | Pre-resolve deterministic voyage parameters from `config.ROUTES` |
+| B (vectorized) | `vectorized_netback()` | NumPy-broadcast Netback/Spread/TCE over all scenarios (< 1ms for 10,000 rows) |
+| JERA | `compute_jera_domestic_margin()` | `Import_Cost_JPY = JKM × USD_JPY` vs domestic revenue threshold |
+| C (cross-route) | `compute_optimal_strategy()` | Real Option: `max(Spread_EU, Spread_Asia, 0)` + option premium |
+| Stats | `compute_distribution_stats()` | P5/P25/P50/P75/P95, VaR, CVaR, success probability, skewness, kurtosis |
+| Sensitivity | `sensitivity_analysis()` | Spearman rank correlation → normalized variance contribution per factor |
+
+**Vectorized Netback** replicates `LNGCalculator.calculate_netback()` exactly (verified to `1e-8` tolerance), using NumPy broadcasting:
+
+```
+laden_days      = base_laden_days + Voyage_Delay          # stochastic delay
+remaining_ratio = (1 − BOG_Rate) ^ laden_days             # exponential decay
+delivered       = cargo × remaining_ratio
+shipping/unit   = RT_days × (Charter + Fuel) / delivered   # round-trip allocation
+netback         = dest_price × (1 − bog_ratio) − shipping/unit − canal/unit − liquefaction
+spread          = netback − HH_Price
+TCE             = (spread × cargo_size) / RT_days          # $/day profit
+```
+
+**TCE (Time Charter Equivalent)** normalizes profit by voyage duration, revealing time-cost effects invisible in raw spread:
+
+| Route | Spread (P50) | TCE (mean) | Insight |
+|-------|-------------|-----------|---------|
+| Europe (Rotterdam) | $3.09 | $333k/day | Highest daily profit — short round-trip |
+| Asia (Tokyo-Panama) | $4.11 | $275k/day | Higher spread but longer capital commitment |
+| Asia (Tokyo-COGH) | $3.44 | $156k/day | Worst TCE despite second-best spread |
+
+**JERA Domestic Margin** models the Japanese utility's import profitability:
+```
+Import_Cost_JPY     = JKM_Price × USD_JPY
+Domestic_Profit_JPY = 1,500 JPY/MMBtu − Import_Cost_JPY
+```
+When `Domestic_Profit < 0`, JERA should divert the cargo to the spot market rather than importing at a loss. The divert probability is a key signal for Asian LNG demand.
+
+**Real Option — Destination Flexibility:**
+```
+Optimal_Spread[i] = max(Spread_EU[i], Spread_Asia_Panama[i], Spread_Asia_COGH[i], 0)
+Option_Premium    = E[Optimal_Spread] − max(E[Spread_EU], E[Spread_Asia])
+```
+The no-go floor (`0`) represents the option to not ship. The option premium quantifies the pure value of keeping destination flexibility open vs. locking into a single route.
+
+**Sensitivity Analysis** ranks each input factor's contribution to spread variance using squared Spearman rank correlation (captures monotonic nonlinear effects like exponential BOG decay):
+
+| Factor | Typical Contribution |
+|--------|---------------------|
+| JKM/TTF Price | 50–65% |
+| HH Price | 15–25% |
+| Charter Rate | 3–8% |
+| Fuel Cost | 3–6% |
+| Voyage Delay | 1–3% |
+| BOG Rate | < 1% |
+
+Outputs: `mc_spread_scenarios.csv` (10,000 enriched rows) / `mc_spread_report.md`
 
 ---
 
@@ -235,6 +301,36 @@ Also computes 20-day rolling correlation between a dynamic sentiment index and r
 
 ---
 
+## Trading Signals
+
+### Single-Point Signal (Step 8)
+
+Classic threshold-based signal from the latest market snapshot:
+
+| Condition | Signal |
+|-----------|--------|
+| Spread > $1.00 | STRONG BUY |
+| $0 < Spread ≤ $1.00 | MARGINAL |
+| Spread ≤ $0 | NO ARB |
+
+### Probabilistic Signal (Step 8b — MC-Enhanced)
+
+Upgraded signal using the full 10,000-scenario distribution:
+
+| Condition | Signal |
+|-----------|--------|
+| P(profit) > 80% AND median spread > $1 | HIGH CONFIDENCE BUY |
+| P(profit) > 60% | MODERATE — positive EV but tail risk |
+| P(profit) > 40% | CAUTIOUS — near break-even |
+| P(profit) ≤ 40% | AVOID — majority unprofitable |
+
+Additional risk overlays:
+- **VaR/CVaR**: 5th-percentile loss and expected shortfall
+- **JERA Alert**: triggers when divert probability > 30% (JKM demand at risk)
+- **FX Risk**: flags significant Fed/BOJ policy divergence affecting USD/JPY
+
+---
+
 ## Key Parameters
 
 | Parameter | Default | Location |
@@ -247,6 +343,7 @@ Also computes 20-day rolling correlation between a dynamic sentiment index and r
 | Vessel speed (laden) | 17 knots | `config.LADEN_SPEED` |
 | Cargo size | 160,000 m³ (~3.74M MMBtu) | `config.STANDARD_CARGO_SIZE_CBM` |
 | JKM premium over TTF | $1.5/MMBtu | `config.JKM_PREMIUM_OVER_TTF` |
+| JERA domestic revenue | 1,500 JPY/MMBtu | `config.JERA_DOMESTIC_REVENUE_JPY` |
 | MC horizon | 45 trading days | `build_step3_parameter_estimates(horizon_days=45)` |
 | MC sample size | 10,000 | `build_step5_validation(n_samples=10_000)` |
 
@@ -256,7 +353,8 @@ Also computes 20-day rolling correlation between a dynamic sentiment index and r
 
 - **JKM** is published by S&P Global Platts and is paid data. The synthetic proxy is adequate for spread direction analysis but should be replaced with a real feed in production — and the JKM–TTF correlation override applied in Step 4.
 - **Central bank minutes** use static sample text from `config.py`. In production, point `fetch_central_bank_text()` at a live scraper.
-- **Monte Carlo simulation layer** (using the Cholesky-decomposed copula from Step 4 and the marginal inverse-CDFs from Step 5) is the natural next extension of this pipeline.
+- **Vectorized consistency**: `vectorized_netback()` in the MC engine has been verified against the scalar `LNGCalculator.calculate_netback()` to `1e-8` tolerance across all three routes.
+- **TCE insight**: raw spread can be misleading — a route with higher spread but longer voyage may have worse daily profitability. The TCE metric normalizes for this, making cross-route comparison meaningful.
 
 ## License
 

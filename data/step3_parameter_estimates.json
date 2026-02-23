@@ -4,21 +4,22 @@
     "method": "historical",
     "distribution_type": "ou",
     "params": {
-      "s0": 3.001790358782581,
-      "kappa": 0.03,
-      "theta": 3.000658781647323,
-      "sigma": 0.055117776226450775,
-      "horizon_mean": 3.000952131998808,
-      "horizon_std": 0.2173246793242009,
-      "horizon_p05": 2.6434530345104976,
-      "horizon_p95": 3.3584512294871187,
-      "gbm_mu_daily": 0.00028960231422071696,
-      "gbm_sigma_daily": 0.026210636275041412,
-      "gbm_horizon_p05": 2.2424057964925823,
-      "gbm_horizon_p95": 3.9988939519974913
+      "s0": 3.483676060869344,
+      "kappa": 0.006991395486710474,
+      "theta": 3.165550470563049,
+      "sigma": 0.04516952312545179,
+      "horizon_mean": 3.3978048992148944,
+      "horizon_std": 0.26103874071113986,
+      "horizon_p05": 2.9683961707450695,
+      "horizon_p95": 3.8272136276847193,
+      "gbm_mu_daily": 0.00030596770733965417,
+      "gbm_sigma_daily": 0.014696022088859994,
+      "gbm_horizon_p05": 2.988664676866446,
+      "gbm_horizon_p95": 4.133678818652316
     },
     "horizon_days": 45,
     "override": {},
+    "source_label": "",
     "_base_params": {}
   },
   {
@@ -26,21 +27,22 @@
     "method": "historical",
     "distribution_type": "ou",
     "params": {
-      "s0": 9.11115372775442,
-      "kappa": 0.03,
-      "theta": 9.021239591950254,
-      "sigma": 0.17758783199668737,
-      "horizon_mean": 9.044548955951877,
-      "horizon_std": 0.7002136385545786,
-      "horizon_p05": 7.892697520529595,
-      "horizon_p95": 10.196400391374159,
-      "gbm_mu_daily": 0.00041744858708707747,
-      "gbm_sigma_daily": 0.028933642919044676,
-      "gbm_horizon_p05": 6.620467006024945,
-      "gbm_horizon_p95": 12.53758771157701
+      "s0": 10.52630993140033,
+      "kappa": 0.032125694923912713,
+      "theta": 10.398248684059665,
+      "sigma": 0.08955596869870892,
+      "horizon_mean": 10.428418814381656,
+      "horizon_std": 0.3433629976215691,
+      "horizon_p05": 9.863586683294175,
+      "horizon_p95": 10.993250945469137,
+      "gbm_mu_daily": 0.0001048657190890308,
+      "gbm_sigma_daily": 0.008593988356537092,
+      "gbm_horizon_p05": 9.603238557672027,
+      "gbm_horizon_p95": 11.608872036267202
     },
     "horizon_days": 45,
     "override": {},
+    "source_label": "",
     "_base_params": {}
   },
   {
@@ -48,26 +50,27 @@
     "method": "historical",
     "distribution_type": "ou",
     "params": {
-      "s0": 10.088619844700306,
-      "kappa": 0.03,
-      "theta": 9.968275641331086,
-      "sigma": 0.18812369607055215,
-      "horizon_mean": 9.999473703979746,
-      "horizon_std": 0.7417556498260206,
-      "horizon_p05": 8.779285660015942,
-      "horizon_p95": 11.21966174794355,
-      "gbm_mu_daily": 0.0004101862962351109,
-      "gbm_sigma_daily": 0.027047591825607797,
-      "gbm_horizon_p05": 7.5002473169986414,
-      "gbm_horizon_p95": 13.624588007114742
+      "s0": 13.101668515516764,
+      "kappa": 0.09592352207158737,
+      "theta": 12.194450632989005,
+      "sigma": 0.277206978104076,
+      "horizon_mean": 12.206558121560057,
+      "horizon_std": 0.632831258945058,
+      "horizon_p05": 11.165550700595437,
+      "horizon_p95": 13.247565542524677,
+      "gbm_mu_daily": 0.00031469674366898154,
+      "gbm_sigma_daily": 0.022226879170521557,
+      "gbm_horizon_p05": 10.28320172799144,
+      "gbm_horizon_p95": 16.794621486660283
     },
     "horizon_days": 45,
     "override": {},
+    "source_label": "",
     "_base_params": {}
   },
   {
     "name": "Charter_Rate",
-    "method": "historical",
+    "method": "expert_prior",
     "distribution_type": "lognormal",
     "params": {
       "s0": 60000.0,
@@ -76,11 +79,11 @@
       "sigma_daily": 0.02204792759220492,
       "horizon_median": 59347.32581847542,
       "horizon_p05": 46530.51254406055,
-      "horizon_p95": 75694.52579034322,
-      "source": 0.0
+      "horizon_p95": 75694.52579034322
     },
     "horizon_days": 45,
     "override": {},
+    "source_label": "config_fallback",
     "_base_params": {}
   },
   {
@@ -88,21 +91,22 @@
     "method": "historical",
     "distribution_type": "gbm",
     "params": {
-      "s0": 148.81964716917642,
-      "mu_daily": 0.0003112251101545688,
-      "sigma_daily": 0.029788112418474837,
-      "annualized_vol": 0.4728716249119153,
-      "horizon_mean": 150.91854905770663,
-      "horizon_p05": 106.49133640892195,
-      "horizon_p95": 205.50841966464048
+      "s0": 148.5632933963179,
+      "mu_daily": 7.074837831297306e-06,
+      "sigma_daily": 0.0020215335678376266,
+      "annualized_vol": 0.032090850524804884,
+      "horizon_mean": 148.61059868053644,
+      "horizon_p05": 145.31879148442934,
+      "horizon_p95": 151.94902740784858
     },
     "horizon_days": 45,
     "override": {},
+    "source_label": "",
     "_base_params": {}
   },
   {
     "name": "Fuel_Cost",
-    "method": "historical",
+    "method": "expert_prior",
     "distribution_type": "lognormal",
     "params": {
       "s0": 15000.0,
@@ -111,16 +115,16 @@
       "sigma_daily": 0.01889822365046136,
       "horizon_median": 14879.947286377233,
       "horizon_p05": 12079.051539259368,
-      "horizon_p95": 18330.315962783054,
-      "source": 0.0
+      "horizon_p95": 18330.315962783054
     },
     "horizon_days": 45,
     "override": {},
+    "source_label": "config_fallback",
     "_base_params": {}
   },
   {
     "name": "Voyage_Delay",
-    "method": "historical",
+    "method": "expert_prior",
     "distribution_type": "gamma",
     "params": {
       "gamma_k": 2.0,
@@ -130,6 +134,7 @@
     },
     "horizon_days": 45,
     "override": {},
+    "source_label": "",
     "_base_params": {}
   },
   {
@@ -144,6 +149,7 @@
     },
     "horizon_days": 45,
     "override": {},
+    "source_label": "",
     "_base_params": {}
   }
 ]

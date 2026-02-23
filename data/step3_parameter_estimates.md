@@ -9,18 +9,18 @@ Horizon shown is in *trading days* from today.
 
 | Parameter | Value |
 | --- | --- |
-| s0 | 3.001790 |
-| kappa | 0.030000 |
-| theta | 3.000659 |
-| sigma | 0.055118 |
-| horizon_mean | 3.000952 |
-| horizon_std | 0.217325 |
-| horizon_p05 | 2.643453 |
-| horizon_p95 | 3.358451 |
-| gbm_mu_daily | 0.000290 |
-| gbm_sigma_daily | 0.026211 |
-| gbm_horizon_p05 | 2.242406 |
-| gbm_horizon_p95 | 3.998894 |
+| s0 | 3.483676 |
+| kappa | 0.006991 |
+| theta | 3.165550 |
+| sigma | 0.045170 |
+| horizon_mean | 3.397805 |
+| horizon_std | 0.261039 |
+| horizon_p05 | 2.968396 |
+| horizon_p95 | 3.827214 |
+| gbm_mu_daily | 0.000306 |
+| gbm_sigma_daily | 0.014696 |
+| gbm_horizon_p05 | 2.988665 |
+| gbm_horizon_p95 | 4.133679 |
 
 ## TTF_Price
 - Method: **historical**
@@ -29,18 +29,18 @@ Horizon shown is in *trading days* from today.
 
 | Parameter | Value |
 | --- | --- |
-| s0 | 9.111154 |
-| kappa | 0.030000 |
-| theta | 9.021240 |
-| sigma | 0.177588 |
-| horizon_mean | 9.044549 |
-| horizon_std | 0.700214 |
-| horizon_p05 | 7.892698 |
-| horizon_p95 | 10.196400 |
-| gbm_mu_daily | 0.000417 |
-| gbm_sigma_daily | 0.028934 |
-| gbm_horizon_p05 | 6.620467 |
-| gbm_horizon_p95 | 12.537588 |
+| s0 | 10.526310 |
+| kappa | 0.032126 |
+| theta | 10.398249 |
+| sigma | 0.089556 |
+| horizon_mean | 10.428419 |
+| horizon_std | 0.343363 |
+| horizon_p05 | 9.863587 |
+| horizon_p95 | 10.993251 |
+| gbm_mu_daily | 0.000105 |
+| gbm_sigma_daily | 0.008594 |
+| gbm_horizon_p05 | 9.603239 |
+| gbm_horizon_p95 | 11.608872 |
 
 ## JKM_Price
 - Method: **historical**
@@ -49,23 +49,24 @@ Horizon shown is in *trading days* from today.
 
 | Parameter | Value |
 | --- | --- |
-| s0 | 10.088620 |
-| kappa | 0.030000 |
-| theta | 9.968276 |
-| sigma | 0.188124 |
-| horizon_mean | 9.999474 |
-| horizon_std | 0.741756 |
-| horizon_p05 | 8.779286 |
-| horizon_p95 | 11.219662 |
-| gbm_mu_daily | 0.000410 |
-| gbm_sigma_daily | 0.027048 |
-| gbm_horizon_p05 | 7.500247 |
-| gbm_horizon_p95 | 13.624588 |
+| s0 | 13.101669 |
+| kappa | 0.095924 |
+| theta | 12.194451 |
+| sigma | 0.277207 |
+| horizon_mean | 12.206558 |
+| horizon_std | 0.632831 |
+| horizon_p05 | 11.165551 |
+| horizon_p95 | 13.247566 |
+| gbm_mu_daily | 0.000315 |
+| gbm_sigma_daily | 0.022227 |
+| gbm_horizon_p05 | 10.283202 |
+| gbm_horizon_p95 | 16.794621 |
 
 ## Charter_Rate
-- Method: **historical**
+- Method: **expert_prior**
 - Distribution: `lognormal`
 - Horizon: 45 days
+- Source: `config_fallback`
 
 | Parameter | Value |
 | --- | --- |
@@ -76,7 +77,6 @@ Horizon shown is in *trading days* from today.
 | horizon_median | 59347.325818 |
 | horizon_p05 | 46530.512544 |
 | horizon_p95 | 75694.525790 |
-| source | 0.000000 |
 
 ## USD_JPY
 - Method: **historical**
@@ -85,18 +85,19 @@ Horizon shown is in *trading days* from today.
 
 | Parameter | Value |
 | --- | --- |
-| s0 | 148.819647 |
-| mu_daily | 0.000311 |
-| sigma_daily | 0.029788 |
-| annualized_vol | 0.472872 |
-| horizon_mean | 150.918549 |
-| horizon_p05 | 106.491336 |
-| horizon_p95 | 205.508420 |
+| s0 | 148.563293 |
+| mu_daily | 0.000007 |
+| sigma_daily | 0.002022 |
+| annualized_vol | 0.032091 |
+| horizon_mean | 148.610599 |
+| horizon_p05 | 145.318791 |
+| horizon_p95 | 151.949027 |
 
 ## Fuel_Cost
-- Method: **historical**
+- Method: **expert_prior**
 - Distribution: `lognormal`
 - Horizon: 45 days
+- Source: `config_fallback`
 
 | Parameter | Value |
 | --- | --- |
@@ -107,10 +108,9 @@ Horizon shown is in *trading days* from today.
 | horizon_median | 14879.947286 |
 | horizon_p05 | 12079.051539 |
 | horizon_p95 | 18330.315963 |
-| source | 0.000000 |
 
 ## Voyage_Delay
-- Method: **historical**
+- Method: **expert_prior**
 - Distribution: `gamma`
 - Horizon: 45 days
 

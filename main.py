@@ -38,6 +38,7 @@ from src.distribution_selection import build_step2_distribution_selection
 from src.parameter_estimation import build_step3_parameter_estimates
 from src.correlation_structure import build_step4_correlation_structure
 from src.validation_calibration import build_step5_validation
+from src.monte_carlo_spread import run_mc_spread, print_mc_summary
 from src import visualizer
 
 
@@ -265,6 +266,29 @@ def run_step5_validation(market_data, step3_result, step4_result):
     print(f"\n  ✓ CSV:  {result['csv_path']}")
     print(f"  ✓ MD:   {result['md_path']}")
     return result
+
+
+def run_mc_spread_analysis(step5_result):
+    """
+    Step 6-MC: Monte Carlo Spread Distribution (Layer 2)
+    Bridges Step 5 correlated scenarios into the Netback engine,
+    producing spread/TCE distributions, JERA margin, Real Option
+    valuation, and factor sensitivity analysis.
+    """
+    print("\n" + "█" * 60)
+    print("  STEP 6-MC: Monte Carlo Spread Distribution")
+    print("█" * 60)
+
+    scenarios = step5_result["scenarios"]
+
+    mc_output = run_mc_spread(
+        scenarios=scenarios,
+        output_dir=config.OUTPUT_DIR,
+    )
+
+    print_mc_summary(mc_output)
+
+    return mc_output
 
 
 def run_lng_economics(market_data):
@@ -520,6 +544,129 @@ def print_trading_signal(lng_results, nlp_results):
     print()
 
 
+def print_probabilistic_trading_signal(mc_output, nlp_results):
+    """
+    Step 8b: Probabilistic Trading Signal (upgraded from single-point).
+    Uses MC spread distributions to produce confidence-weighted recommendations.
+    """
+    import numpy as np
+
+    print("\n" + "█" * 60)
+    print("  STEP 8b: Probabilistic Trading Signal (MC-Enhanced)")
+    print("█" * 60)
+
+    opt = mc_output.optimal_strategy
+    s_opt = opt.stats_optimal_spread
+    jera = mc_output.jera_margin
+
+    fed_score = nlp_results["sentiment_scores"]["fed"]
+    boj_score = nlp_results["sentiment_scores"]["boj"]
+
+    # ── Per-route summary ──
+    print(f"""
+    ╔══════════════════════════════════════════════════════════════╗
+    ║           📋 PROBABILISTIC TRADING SIGNAL (N={mc_output.n_scenarios:,})        ║
+    ╠══════════════════════════════════════════════════════════════╣
+    ║                                                              ║
+    ║  [Spread Distribution — $/MMBtu]                            ║""")
+
+    for rr in mc_output.route_results:
+        s = rr.stats_spread
+        t = rr.stats_tce
+        label = rr.route.label
+        print(f"    ║  {label:<30s}                            ║")
+        print(f"    ║    Spread  P50=${s.median:+.2f}  "
+              f"[P5=${s.p05:+.2f}, P95=${s.p95:+.2f}]          ║")
+        print(f"    ║    TCE     ${t.mean:>+,.0f}/day   "
+              f"P(arb>0)={s.prob_positive:.0%}  "
+              f"P(arb>$1)={s.prob_above_1:.0%}       ║")
+
+    print(f"    ║                                                              ║")
+
+    # ── Optimal strategy ──
+    print(f"    ║  [Optimal Strategy — Destination Flexibility]              ║")
+    print(f"    ║    P50=${s_opt.median:+.2f}  "
+          f"P(profit)={s_opt.prob_positive:.0%}  "
+          f"VaR5%=${s_opt.var_5pct:+.2f}  "
+          f"CVaR5%=${s_opt.cvar_5pct:+.2f}   ║")
+    print(f"    ║    Option Premium: "
+          f"${opt.option_premium_spread:+.4f}/MMBtu  "
+          f"(${opt.option_premium_tce:+,.0f}/day)        ║")
+    print(f"    ║                                                              ║")
+
+    # ── Route selection ──
+    print(f"    ║  [Route Selection Probability]                             ║")
+    for label, prob in opt.route_selection_prob.items():
+        bar = "█" * int(prob * 30)
+        print(f"    ║    {label:<22s} {prob:5.1%}  {bar:<30s} ║")
+
+    print(f"    ║                                                              ║")
+
+    # ── JERA ──
+    mean_profit = float(np.mean(jera.domestic_profit_jpy))
+    print(f"    ║  [JERA Domestic Margin]                                    ║")
+    print(f"    ║    Mean profit: {mean_profit:+,.0f} JPY/MMBtu  "
+          f"Divert prob: {jera.divert_probability:.1%}         ║")
+    print(f"    ║                                                              ║")
+
+    # ── Macro overlay ──
+    print(f"    ║  [Macro Sentiment]                                          ║")
+    print(f"    ║    Fed: {nlp_results['results']['fed']['stance']:<14s}  "
+          f"BOJ: {nlp_results['results']['boj']['stance']:<14s}            ║")
+    fx_bias = "Bullish USD" if fed_score > boj_score else "Bearish USD"
+    print(f"    ║    USD/JPY Bias: {fx_bias:<14s}                              ║")
+    print(f"    ║                                                              ║")
+    print(f"    ╠══════════════════════════════════════════════════════════════╣")
+    print(f"    ║                                                              ║")
+
+    # ── Probabilistic recommendation ──
+    prob_pos = s_opt.prob_positive
+    median_spread = s_opt.median
+
+    if prob_pos > 0.80 and median_spread > 1.0:
+        emoji = "🟢"
+        action = "HIGH CONFIDENCE BUY"
+        detail = (f"P(profit)={prob_pos:.0%}, "
+                  f"median=${median_spread:+.2f}/MMBtu")
+    elif prob_pos > 0.60:
+        emoji = "🟡"
+        action = "MODERATE — positive EV but tail risk exists"
+        detail = (f"P(profit)={prob_pos:.0%}, "
+                  f"VaR5%=${s_opt.var_5pct:+.2f}")
+    elif prob_pos > 0.40:
+        emoji = "🟠"
+        action = "CAUTIOUS — near break-even, monitor closely"
+        detail = (f"P(profit)={prob_pos:.0%}, "
+                  f"CVaR5%=${s_opt.cvar_5pct:+.2f}")
+    else:
+        emoji = "🔴"
+        action = "AVOID — majority of scenarios unprofitable"
+        detail = (f"P(profit)={prob_pos:.0%}, "
+                  f"median=${median_spread:+.2f}/MMBtu")
+
+    print(f"    ║  {emoji} {action:<57s} ║")
+    print(f"    ║    {detail:<58s} ║")
+    print(f"    ║                                                              ║")
+
+    # FX risk overlay
+    if abs(fed_score - boj_score) > 0.3:
+        fx_note = "FX Risk: Significant policy divergence detected"
+        fx_icon = "⚠️ "
+    else:
+        fx_note = "FX Risk: Policy divergence is moderate"
+        fx_icon = "✅"
+    print(f"    ║  {fx_icon} {fx_note:<57s} ║")
+
+    if jera.divert_probability > 0.3:
+        jera_note = (f"JERA Alert: {jera.divert_probability:.0%} "
+                     f"divert probability — JKM demand at risk")
+        print(f"    ║  ⚠️  {jera_note:<56s} ║")
+
+    print(f"    ║                                                              ║")
+    print(f"    ╚══════════════════════════════════════════════════════════════╝")
+    print()
+
+
 def main():
     """Main program entry"""
     try:
@@ -529,15 +676,18 @@ def main():
         # Ensure output directory
         ensure_output_dir()
         
-        # Step 1: Load market data
+        # Step 1-5: Market data → parameter modeling → validation
         market_data = run_market_data_pipeline()
         run_step1_parameter_inventory(market_data)
         run_step2_distribution_selection(market_data)
         step3_result = run_step3_parameter_estimation(market_data)
         step4_result = run_step4_correlation_structure(market_data)
-        run_step5_validation(market_data, step3_result, step4_result)
+        step5_result = run_step5_validation(market_data, step3_result, step4_result)
         
-        # Step 6: LNG economics calculation
+        # Step 6-MC: Monte Carlo Spread Distribution (Layer 2)
+        mc_output = run_mc_spread_analysis(step5_result)
+        
+        # Step 6: Single-point LNG economics (reference baseline)
         lng_results = run_lng_economics(market_data)
         
         # Step 6: NLP macro sentiment analysis
@@ -546,8 +696,9 @@ def main():
         # Step 7: Generate charts
         generate_charts(market_data, lng_results, nlp_results)
         
-        # Step 8: Output trading signal
+        # Step 8: Output trading signals
         print_trading_signal(lng_results, nlp_results)
+        print_probabilistic_trading_signal(mc_output, nlp_results)
         
         print("=" * 60)
         print("  ✅ Global LNG Arbitrage Monitor completed!")

@@ -184,7 +184,20 @@ DOVISH_KEYWORDS = [
 
 
 # =============================================================================
-# 6. Output Configuration
+# 6. JERA / Japan Domestic Market Configuration
+# =============================================================================
+
+# Japanese regulated gas tariff revenue (JPY per MMBtu)
+# Represents the approximate blended revenue a Japanese utility earns
+# from selling regasified LNG into the domestic gas/power grid.
+# When Import_Cost_JPY (= JKM_USD × USD/JPY) exceeds this level,
+# JERA would prefer to divert the cargo to the spot market rather
+# than import at a loss.
+JERA_DOMESTIC_REVENUE_JPY = 1500.0  # JPY/MMBtu (conservative estimate)
+
+
+# =============================================================================
+# 7. Output Configuration
 # =============================================================================
 
 OUTPUT_DIR = "data"  # Chart and data output directory

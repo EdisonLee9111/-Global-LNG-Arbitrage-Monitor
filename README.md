@@ -15,7 +15,7 @@ A quantitative analytics pipeline for monitoring US Gulf Coast LNG export arbitr
 | **6-MC** | **`monte_carlo_spread`** | **Vectorized Netback over 10,000 scenarios → Spread/TCE distributions, JERA margin, Real Option, sensitivity** |
 | 6 | `lng_economics` | Single-point Netback & arb spread for 3 routes (reference baseline) |
 | 7 | `macro_sentiment` | Fed/BOJ hawkish-dovish scoring; sentiment × USD/JPY correlation |
-| 8 | `visualizer` | 4 publication-quality PNG charts |
+| 8 | `visualizer` | 7 publication-quality PNG charts (4 classic + 3 MC distribution) |
 | **8b** | **`main`** | **Probabilistic trading signal: P(profit), VaR/CVaR, option premium, JERA divert alert** |
 
 ---
@@ -37,7 +37,7 @@ LNG_Arbitrage_Monitor/
 │   ├── parameter_estimation.py          # Step 3: machine-readable fitted parameters + projections
 │   ├── correlation_structure.py         # Step 4: log-return correlation → Gaussian Copula
 │   ├── validation_calibration.py        # Step 5: range / coverage / extreme audit
-│   └── visualizer.py                    # Matplotlib/Seaborn charts
+│   └── visualizer.py                    # 7 Matplotlib charts (classic + MC distribution)
 └── data/                                # All outputs land here
     ├── market_data.csv
     ├── step1_parameter_inventory_auto.csv / .md
@@ -50,7 +50,10 @@ LNG_Arbitrage_Monitor/
     ├── 01_global_gas_spreads.png
     ├── 02_arbitrage_netback.png
     ├── 03_macro_sentiment.png
-    └── 04_historical_netback.png
+    ├── 04_historical_netback.png
+    ├── 05_mc_spread_distribution.png  # KDE overlay + route selection + stats table
+    ├── 06_mc_tce_comparison.png       # TCE density + mean TCE vs spread bar
+    └── 07_mc_sensitivity_tornado.png  # Factor importance + Spearman rho direction
 ```
 
 ---
@@ -292,12 +295,22 @@ Also computes 20-day rolling correlation between a dynamic sentiment index and r
 
 ### `src/visualizer.py`
 
+**Charts 01–04: Market Data & Single-Point Analysis**
+
 | Chart | Content |
 |-------|---------|
 | `01_global_gas_spreads.png` | HH / TTF / JKM price series + spread bands |
 | `02_arbitrage_netback.png` | Netback vs HH bar chart + arb spread status |
 | `03_macro_sentiment.png` | Sentiment × FX volatility scatter + OLS line; hawk/dove bar chart |
 | `04_historical_netback.png` | 1-year Netback time series + arb spread area chart |
+
+**Charts 05–07: Monte Carlo Distribution Analysis**
+
+| Chart | Content |
+|-------|---------|
+| `05_mc_spread_distribution.png` | KDE overlay of spread distributions for 3 routes + Optimal; P5/P50/P95 markers; route selection probability bar; summary statistics table with VaR/CVaR; option premium annotation |
+| `06_mc_tce_comparison.png` | TCE ($/day) density curves with mean markers; mean TCE vs spread horizontal bar; auto-generated insight text highlighting time-cost divergence between routes |
+| `07_mc_sensitivity_tornado.png` | Dual-panel tornado: left = variance contribution % (sorted), right = Spearman rho direction & strength; color-coded positive/negative correlation; JERA divert probability footer |
 
 ---
 

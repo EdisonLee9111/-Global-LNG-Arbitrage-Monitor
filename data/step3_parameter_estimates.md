@@ -9,18 +9,18 @@ Horizon shown is in *trading days* from today.
 
 | Parameter | Value |
 | --- | --- |
-| s0 | 3.483676 |
-| kappa | 0.006991 |
-| theta | 3.165550 |
-| sigma | 0.045170 |
-| horizon_mean | 3.397805 |
-| horizon_std | 0.261039 |
-| horizon_p05 | 2.968396 |
-| horizon_p95 | 3.827214 |
-| gbm_mu_daily | 0.000306 |
-| gbm_sigma_daily | 0.014696 |
-| gbm_horizon_p05 | 2.988665 |
-| gbm_horizon_p95 | 4.133679 |
+| s0 | 3.492257 |
+| kappa | 0.006731 |
+| theta | 3.177624 |
+| sigma | 0.045056 |
+| horizon_mean | 3.410037 |
+| horizon_std | 0.261755 |
+| horizon_p05 | 2.979451 |
+| horizon_p95 | 3.840624 |
+| gbm_mu_daily | 0.000308 |
+| gbm_sigma_daily | 0.014638 |
+| gbm_horizon_p05 | 2.998394 |
+| gbm_horizon_p95 | 4.141804 |
 
 ## TTF_Price
 - Method: **historical**
@@ -29,18 +29,18 @@ Horizon shown is in *trading days* from today.
 
 | Parameter | Value |
 | --- | --- |
-| s0 | 10.526310 |
-| kappa | 0.032126 |
-| theta | 10.398249 |
-| sigma | 0.089556 |
-| horizon_mean | 10.428419 |
-| horizon_std | 0.343363 |
-| horizon_p05 | 9.863587 |
-| horizon_p95 | 10.993251 |
-| gbm_mu_daily | 0.000105 |
-| gbm_sigma_daily | 0.008594 |
-| gbm_horizon_p05 | 9.603239 |
-| gbm_horizon_p95 | 11.608872 |
+| s0 | 10.547970 |
+| kappa | 0.030475 |
+| theta | 10.396106 |
+| sigma | 0.089533 |
+| horizon_mean | 10.434643 |
+| horizon_std | 0.350788 |
+| horizon_p05 | 9.857597 |
+| horizon_p95 | 11.011689 |
+| gbm_mu_daily | 0.000108 |
+| gbm_sigma_daily | 0.008608 |
+| gbm_horizon_p05 | 9.622741 |
+| gbm_horizon_p95 | 11.635922 |
 
 ## JKM_Price
 - Method: **historical**
@@ -49,18 +49,18 @@ Horizon shown is in *trading days* from today.
 
 | Parameter | Value |
 | --- | --- |
-| s0 | 13.101669 |
-| kappa | 0.095924 |
-| theta | 12.194451 |
-| sigma | 0.277207 |
-| horizon_mean | 12.206558 |
-| horizon_std | 0.632831 |
-| horizon_p05 | 11.165551 |
-| horizon_p95 | 13.247566 |
-| gbm_mu_daily | 0.000315 |
-| gbm_sigma_daily | 0.022227 |
-| gbm_horizon_p05 | 10.283202 |
-| gbm_horizon_p95 | 16.794621 |
+| s0 | 13.123328 |
+| kappa | 0.086617 |
+| theta | 12.191489 |
+| sigma | 0.283812 |
+| horizon_mean | 12.210394 |
+| horizon_std | 0.681752 |
+| horizon_p05 | 11.088912 |
+| horizon_p95 | 13.331876 |
+| gbm_mu_daily | 0.000330 |
+| gbm_sigma_daily | 0.022821 |
+| gbm_horizon_p05 | 10.233898 |
+| gbm_horizon_p95 | 16.934710 |
 
 ## Charter_Rate
 - Method: **expert_prior**

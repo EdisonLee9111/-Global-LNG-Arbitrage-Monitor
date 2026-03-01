@@ -12,28 +12,28 @@ Route: `US_Gulf_to_Rotterdam` (5,000 nm, base laden 12.3 d, canal fee $0)
 
 | Metric | Value |
 | --- | ---: |
-| Mean | $+3.082 |
-| Median (P50) | $+3.085 |
-| Std Dev | $0.423 |
-| P05 | $+2.378 |
-| P25 | $+2.792 |
-| P75 | $+3.372 |
-| P95 | $+3.779 |
-| VaR (5%) | $+2.378 |
-| CVaR (5%) | $+2.198 |
+| Mean | $+3.076 |
+| Median (P50) | $+3.079 |
+| Std Dev | $0.429 |
+| P05 | $+2.363 |
+| P25 | $+2.782 |
+| P75 | $+3.370 |
+| P95 | $+3.784 |
+| VaR (5%) | $+2.363 |
+| CVaR (5%) | $+2.181 |
 | P(Spread > 0) | 100.0% |
 | P(Spread > $1) | 100.0% |
-| Skewness | -0.023 |
+| Skewness | -0.022 |
 | Kurtosis | -0.047 |
 
 ### TCE ($/day)
 
 | Metric | Value |
 | --- | ---: |
-| Mean | $+333,626 |
-| Median | $+333,384 |
-| P05 | $+246,643 |
-| P95 | $+419,545 |
+| Mean | $+332,965 |
+| Median | $+332,679 |
+| P05 | $+245,421 |
+| P95 | $+419,926 |
 | P(TCE > 0) | 100.0% |
 
 ---
@@ -46,28 +46,28 @@ Route: `US_Gulf_to_Tokyo_Panama` (9,200 nm, base laden 22.5 d, canal fee $400,00
 
 | Metric | Value |
 | --- | ---: |
-| Mean | $+4.108 |
-| Median (P50) | $+4.111 |
-| Std Dev | $0.617 |
-| P05 | $+3.097 |
-| P25 | $+3.685 |
-| P75 | $+4.522 |
-| P95 | $+5.128 |
-| VaR (5%) | $+3.097 |
-| CVaR (5%) | $+2.854 |
+| Mean | $+4.099 |
+| Median (P50) | $+4.102 |
+| Std Dev | $0.658 |
+| P05 | $+3.021 |
+| P25 | $+3.649 |
+| P75 | $+4.541 |
+| P95 | $+5.199 |
+| VaR (5%) | $+3.021 |
+| CVaR (5%) | $+2.762 |
 | P(Spread > 0) | 100.0% |
 | P(Spread > $1) | 100.0% |
-| Skewness | +0.038 |
-| Kurtosis | -0.032 |
+| Skewness | +0.037 |
+| Kurtosis | -0.029 |
 
 ### TCE ($/day)
 
 | Metric | Value |
 | --- | ---: |
-| Mean | $+275,273 |
-| Median | $+274,861 |
-| P05 | $+204,647 |
-| P95 | $+348,929 |
+| Mean | $+274,724 |
+| Median | $+274,170 |
+| P05 | $+199,664 |
+| P95 | $+352,840 |
 | P(TCE > 0) | 100.0% |
 
 ---
@@ -80,28 +80,28 @@ Route: `US_Gulf_to_Tokyo_COGH` (14,500 nm, base laden 35.5 d, canal fee $0)
 
 | Metric | Value |
 | --- | ---: |
-| Mean | $+3.441 |
-| Median (P50) | $+3.439 |
-| Std Dev | $0.601 |
-| P05 | $+2.458 |
-| P25 | $+3.032 |
-| P75 | $+3.845 |
-| P95 | $+4.438 |
-| VaR (5%) | $+2.458 |
-| CVaR (5%) | $+2.224 |
+| Mean | $+3.433 |
+| Median (P50) | $+3.431 |
+| Std Dev | $0.637 |
+| P05 | $+2.392 |
+| P25 | $+2.998 |
+| P75 | $+3.860 |
+| P95 | $+4.489 |
+| VaR (5%) | $+2.392 |
+| CVaR (5%) | $+2.141 |
 | P(Spread > 0) | 100.0% |
 | P(Spread > $1) | 100.0% |
-| Skewness | +0.034 |
-| Kurtosis | -0.044 |
+| Skewness | +0.036 |
+| Kurtosis | -0.041 |
 
 ### TCE ($/day)
 
 | Metric | Value |
 | --- | ---: |
-| Mean | $+155,831 |
-| Median | $+155,558 |
-| P05 | $+110,350 |
-| P95 | $+202,777 |
+| Mean | $+155,456 |
+| Median | $+155,207 |
+| P05 | $+107,563 |
+| P95 | $+204,744 |
 | P(TCE > 0) | 100.0% |
 
 ---
@@ -115,9 +115,9 @@ JERA imports LNG at JKM (USD), converts via USD/JPY, and sells domestically in J
 | Domestic Revenue | 1,500 JPY/MMBtu |
 | Mean Import Cost | 1,815 JPY/MMBtu |
 | Mean Domestic Profit | -315 JPY/MMBtu |
-| P05 Domestic Profit | -478 JPY/MMBtu |
-| P95 Domestic Profit | -156 JPY/MMBtu |
-| Divert Probability | 100.0% |
+| P05 Domestic Profit | -489 JPY/MMBtu |
+| P95 Domestic Profit | -145 JPY/MMBtu |
+| Divert Probability | 99.9% |
 
 ---
 
@@ -129,8 +129,8 @@ For each scenario the trader picks the route with the highest spread, or chooses
 
 | Route | P(chosen) |
 | --- | ---: |
-| Europe (Rotterdam) | 2.6% |
-| Asia (Tokyo via Panama) | 97.4% |
+| Europe (Rotterdam) | 3.4% |
+| Asia (Tokyo via Panama) | 96.6% |
 | Asia (Tokyo via COGH) | 0.0% |
 | No-Go | 0.0% |
 
@@ -138,15 +138,15 @@ For each scenario the trader picks the route with the highest spread, or chooses
 
 | Metric | Value |
 | --- | ---: |
-| Mean | $+4.113 |
-| Median | $+4.111 |
-| P05 | $+3.125 |
-| P95 | $+5.128 |
+| Mean | $+4.107 |
+| Median | $+4.102 |
+| P05 | $+3.066 |
+| P95 | $+5.199 |
 | P(Spread > 0) | 100.0% |
 
-**Option Premium (Spread)**: $+0.0054/MMBtu
+**Option Premium (Spread)**: $+0.0079/MMBtu
 
-**Option Premium (TCE)**: $-54,450/day
+**Option Premium (TCE)**: $-53,147/day
 
 ---
 
@@ -158,50 +158,50 @@ Variance contribution is based on squared Spearman rank correlation, normalised 
 
 | Rank | Factor | Spearman rho | Variance % |
 | ---: | --- | ---: | ---: |
-| 1 | TTF_Price | +0.6684 | 46.9% |
-| 2 | HH_Price | -0.6545 | 44.9% |
-| 3 | JKM_Price | +0.2063 | 4.5% |
-| 4 | Voyage_Delay | -0.1587 | 2.6% |
-| 5 | BOG_Rate | -0.0730 | 0.6% |
-| 6 | Fuel_Cost | -0.0640 | 0.4% |
-| 7 | Charter_Rate | -0.0254 | 0.1% |
-| 8 | USD_JPY | -0.0139 | 0.0% |
+| 1 | TTF_Price | +0.6766 | 47.8% |
+| 2 | HH_Price | -0.6476 | 43.8% |
+| 3 | JKM_Price | +0.2175 | 4.9% |
+| 4 | Voyage_Delay | -0.1569 | 2.6% |
+| 5 | BOG_Rate | -0.0719 | 0.5% |
+| 6 | Fuel_Cost | -0.0551 | 0.3% |
+| 7 | Charter_Rate | -0.0191 | 0.0% |
+| 8 | USD_JPY | -0.0138 | 0.0% |
 
 ### Asia (Tokyo via Panama)
 
 | Rank | Factor | Spearman rho | Variance % |
 | ---: | --- | ---: | ---: |
-| 1 | JKM_Price | +0.8224 | 61.4% |
-| 2 | HH_Price | -0.4582 | 19.1% |
-| 3 | TTF_Price | +0.3168 | 9.1% |
-| 4 | Fuel_Cost | +0.2268 | 4.7% |
-| 5 | Charter_Rate | +0.1920 | 3.3% |
-| 6 | Voyage_Delay | -0.1337 | 1.6% |
-| 7 | BOG_Rate | -0.0949 | 0.8% |
-| 8 | USD_JPY | -0.0131 | 0.0% |
+| 1 | JKM_Price | +0.8440 | 62.1% |
+| 2 | HH_Price | -0.4299 | 16.1% |
+| 3 | TTF_Price | +0.3372 | 9.9% |
+| 4 | Fuel_Cost | +0.2562 | 5.7% |
+| 5 | Charter_Rate | +0.2161 | 4.1% |
+| 6 | Voyage_Delay | -0.1263 | 1.4% |
+| 7 | BOG_Rate | -0.0888 | 0.7% |
+| 8 | USD_JPY | -0.0120 | 0.0% |
 
 ### Asia (Tokyo via COGH)
 
 | Rank | Factor | Spearman rho | Variance % |
 | ---: | --- | ---: | ---: |
-| 1 | JKM_Price | +0.7500 | 58.3% |
-| 2 | HH_Price | -0.5079 | 26.7% |
-| 3 | TTF_Price | +0.2624 | 7.1% |
-| 4 | Fuel_Cost | +0.1705 | 3.0% |
-| 5 | BOG_Rate | -0.1467 | 2.2% |
-| 6 | Voyage_Delay | -0.1410 | 2.1% |
-| 7 | Charter_Rate | +0.0722 | 0.5% |
-| 8 | USD_JPY | -0.0210 | 0.0% |
+| 1 | JKM_Price | +0.7798 | 60.2% |
+| 2 | HH_Price | -0.4784 | 22.7% |
+| 3 | TTF_Price | +0.2875 | 8.2% |
+| 4 | Fuel_Cost | +0.2045 | 4.1% |
+| 5 | BOG_Rate | -0.1379 | 1.9% |
+| 6 | Voyage_Delay | -0.1337 | 1.8% |
+| 7 | Charter_Rate | +0.1043 | 1.1% |
+| 8 | USD_JPY | -0.0196 | 0.0% |
 
 ### Optimal
 
 | Rank | Factor | Spearman rho | Variance % |
 | ---: | --- | ---: | ---: |
-| 1 | JKM_Price | +0.8201 | 60.9% |
-| 2 | HH_Price | -0.4623 | 19.4% |
-| 3 | TTF_Price | +0.3225 | 9.4% |
-| 4 | Fuel_Cost | +0.2246 | 4.6% |
-| 5 | Charter_Rate | +0.1904 | 3.3% |
-| 6 | Voyage_Delay | -0.1340 | 1.6% |
-| 7 | BOG_Rate | -0.0951 | 0.8% |
-| 8 | USD_JPY | -0.0131 | 0.0% |
+| 1 | JKM_Price | +0.8410 | 61.5% |
+| 2 | HH_Price | -0.4353 | 16.5% |
+| 3 | TTF_Price | +0.3445 | 10.3% |
+| 4 | Fuel_Cost | +0.2533 | 5.6% |
+| 5 | Charter_Rate | +0.2140 | 4.0% |
+| 6 | Voyage_Delay | -0.1269 | 1.4% |
+| 7 | BOG_Rate | -0.0890 | 0.7% |
+| 8 | USD_JPY | -0.0118 | 0.0% |

@@ -109,7 +109,6 @@ ROUTES = {
 TICKERS = {
     "henry_hub": "NG=F",       # NYMEX Henry Hub Natural Gas Futures
     "ttf": "TTF=F",            # ICE TTF Natural Gas Futures (EUR/MWh)
-    "brent": "BZ=F",           # ICE Brent Crude (for reference)
     "usd_jpy": "JPY=X",       # USD/JPY exchange rate
     "usd_eur": "EURUSD=X",    # EUR/USD exchange rate
 }
@@ -202,4 +201,3 @@ JERA_DOMESTIC_REVENUE_JPY = 1500.0  # JPY/MMBtu (conservative estimate)
 
 OUTPUT_DIR = "data"  # Chart and data output directory
 FIGURE_DPI = 150     # Output chart resolution
-FIGURE_SIZE = (14, 8)  # Default chart size

@@ -428,9 +428,9 @@ def run_nlp_analysis(market_data):
     }
 
 
-def generate_charts(market_data, lng_results, nlp_results):
+def generate_charts(market_data, lng_results, nlp_results, mc_output=None):
     """
-    Step 6: Generate Professional Charts
+    Step 7: Generate Professional Charts (01–04 classic, 05–07 MC)
     """
     print("\n" + "█" * 60)
     print("  STEP 7: Generating Visualization Charts")
@@ -459,14 +459,34 @@ def generate_charts(market_data, lng_results, nlp_results):
         save_path=os.path.join(config.OUTPUT_DIR, "03_macro_sentiment.png"),
     )
     
-    # Additional chart: Historical Netback
-    print("  📉 Generating Additional Chart: Historical Netback...")
+    # Chart 4: Historical Netback
+    print("  📉 Generating Chart 4: Historical Netback...")
     visualizer.plot_historical_netback(
         netback_data_europe=lng_results["hist_europe"],
         netback_data_asia=lng_results["hist_asia"],
         market_data=market_data,
         save_path=os.path.join(config.OUTPUT_DIR, "04_historical_netback.png"),
     )
+    
+    # Charts 5–7: Monte Carlo Distribution Analysis
+    if mc_output is not None:
+        print("  📊 Generating Chart 5: MC Spread Distribution...")
+        visualizer.plot_mc_spread_distribution(
+            mc_output,
+            save_path=os.path.join(config.OUTPUT_DIR, "05_mc_spread_distribution.png"),
+        )
+        
+        print("  📊 Generating Chart 6: MC TCE Comparison...")
+        visualizer.plot_mc_tce_comparison(
+            mc_output,
+            save_path=os.path.join(config.OUTPUT_DIR, "06_mc_tce_comparison.png"),
+        )
+        
+        print("  📊 Generating Chart 7: MC Sensitivity Tornado...")
+        visualizer.plot_mc_sensitivity_tornado(
+            mc_output,
+            save_path=os.path.join(config.OUTPUT_DIR, "07_mc_sensitivity_tornado.png"),
+        )
     
     # Close all figure windows to avoid memory leaks
     import matplotlib.pyplot as plt
@@ -693,8 +713,8 @@ def main():
         # Step 6: NLP macro sentiment analysis
         nlp_results = run_nlp_analysis(market_data)
         
-        # Step 7: Generate charts
-        generate_charts(market_data, lng_results, nlp_results)
+        # Step 7: Generate charts (including MC charts)
+        generate_charts(market_data, lng_results, nlp_results, mc_output)
         
         # Step 8: Output trading signals
         print_trading_signal(lng_results, nlp_results)

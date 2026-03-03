@@ -39,6 +39,7 @@ from src.parameter_estimation import build_step3_parameter_estimates
 from src.correlation_structure import build_step4_correlation_structure
 from src.validation_calibration import build_step5_validation
 from src.monte_carlo_spread import run_mc_spread, print_mc_summary
+from src.swap_overlay import run_swap_overlay, print_swap_summary
 from src import visualizer
 
 
@@ -428,9 +429,30 @@ def run_nlp_analysis(market_data):
     }
 
 
-def generate_charts(market_data, lng_results, nlp_results, mc_output=None):
+def run_swap_overlay_step(mc_output):
     """
-    Step 7: Generate Professional Charts (01–04 classic, 05–07 MC)
+    Step 6-SW: Financial Swap / FFA Overlay on Optimal Spread Distribution.
+    Applies HH + JKM price swaps (and optionally Charter FFA) on top of the
+    physical spread distribution.  Zero-invasive: reads mc_output, produces
+    a HedgedOutput with full effectiveness metrics.
+    """
+    print("\n" + "█" * 60)
+    print("  STEP 6-SW: Swap Overlay (Hedge Analysis)")
+    print("█" * 60)
+
+    hedged_output = run_swap_overlay(
+        mc_output=mc_output,
+        output_dir=config.OUTPUT_DIR,
+    )
+
+    print_swap_summary(hedged_output)
+    return hedged_output
+
+
+def generate_charts(market_data, lng_results, nlp_results, mc_output=None,
+                    hedged_output=None):
+    """
+    Step 7: Generate Professional Charts (01–04 classic, 05–07 MC, 08 Swap)
     """
     print("\n" + "█" * 60)
     print("  STEP 7: Generating Visualization Charts")
@@ -487,7 +509,15 @@ def generate_charts(market_data, lng_results, nlp_results, mc_output=None):
             mc_output,
             save_path=os.path.join(config.OUTPUT_DIR, "07_mc_sensitivity_tornado.png"),
         )
-    
+
+    # Chart 8: Swap Overlay — Hedged vs Unhedged Distribution
+    if hedged_output is not None:
+        print("  📊 Generating Chart 8: Swap Hedge Overlay...")
+        visualizer.plot_hedge_overlay(
+            hedged_output,
+            save_path=os.path.join(config.OUTPUT_DIR, "08_swap_hedge_overlay.png"),
+        )
+
     # Close all figure windows to avoid memory leaks
     import matplotlib.pyplot as plt
     plt.close("all")
@@ -706,16 +736,20 @@ def main():
         
         # Step 6-MC: Monte Carlo Spread Distribution (Layer 2)
         mc_output = run_mc_spread_analysis(step5_result)
-        
+
+        # Step 6-SW: Swap / FFA overlay on optimal spread distribution
+        hedged_output = run_swap_overlay_step(mc_output)
+
         # Step 6: Single-point LNG economics (reference baseline)
         lng_results = run_lng_economics(market_data)
-        
+
         # Step 6: NLP macro sentiment analysis
         nlp_results = run_nlp_analysis(market_data)
-        
-        # Step 7: Generate charts (including MC charts)
-        generate_charts(market_data, lng_results, nlp_results, mc_output)
-        
+
+        # Step 7: Generate charts (including MC + Swap overlay charts)
+        generate_charts(market_data, lng_results, nlp_results, mc_output,
+                        hedged_output)
+
         # Step 8: Output trading signals
         print_trading_signal(lng_results, nlp_results)
         print_probabilistic_trading_signal(mc_output, nlp_results)

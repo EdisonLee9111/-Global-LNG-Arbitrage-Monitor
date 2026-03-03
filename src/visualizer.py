@@ -15,6 +15,7 @@ import os
 
 from . import config
 from .monte_carlo_spread import MCSpreadOutput
+from .swap_overlay import HedgedOutput
 
 
 # Set global plotting style
@@ -761,4 +762,251 @@ def plot_mc_sensitivity_tornado(
     if save_path:
         fig.savefig(save_path, dpi=config.FIGURE_DPI, bbox_inches="tight")
         print(f"[Visualizer] ✓ Chart saved: {save_path}")
+    return fig
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Chart 08: Swap Hedge Overlay — Hedged vs Unhedged Distribution
+# ─────────────────────────────────────────────────────────────────────────────
+
+def plot_hedge_overlay(
+    hedged_output: "HedgedOutput",
+    save_path=None,
+):
+    """
+    Chart 8: Swap Overlay — Hedged vs Unhedged Optimal Spread Distribution.
+
+    Layout (GridSpec 3 x 2)
+    -----------------------
+    [0:2, 0]  KDE density overlay  — hero panel (tall, left)
+    [0,   1]  Hedge ratio sensitivity — VaR / CVaR / variance-reduction vs h
+    [1,   1]  Per-leg P&L attribution — horizontal bar chart
+    [2,   :]  Effectiveness metrics table — full-width footer
+
+    Parameters
+    ----------
+    hedged_output : HedgedOutput
+        Output from run_swap_overlay().
+    save_path : str or None
+        PNG save path.
+    """
+    import matplotlib.gridspec as gridspec
+
+    eff  = hedged_output.effectiveness
+    uh   = hedged_output.unhedged_stats_spread
+    h    = hedged_output.hedged_stats_spread
+    spec = hedged_output.swap_spec
+
+    fig = plt.figure(figsize=(16, 12))
+    fig.patch.set_facecolor("#f8f9fa")
+    fig.suptitle(
+        "Swap Overlay — Hedged vs Unhedged Distribution Analysis",
+        fontsize=16, fontweight="bold", y=0.98,
+    )
+
+    gs = gridspec.GridSpec(
+        3, 2, figure=fig,
+        width_ratios=[1.6, 1.0],
+        height_ratios=[1.0, 1.0, 0.75],
+        hspace=0.42, wspace=0.35,
+    )
+
+    ax_kde   = fig.add_subplot(gs[0:2, 0])
+    ax_ratio = fig.add_subplot(gs[0,   1])
+    ax_legs  = fig.add_subplot(gs[1,   1])
+    ax_table = fig.add_subplot(gs[2,   :])
+
+    COLOR_UH = "#FF6F00"    # Amber  — unhedged (matches mc_optimal palette)
+    COLOR_H  = "#1565C0"    # Blue   — hedged
+
+    # ── Panel 1: KDE density overlay ──────────────────────────────────────────
+    hedged_arr = hedged_output.hedged_spread
+    kde_h  = stats.gaussian_kde(hedged_arr)
+    x_lo   = min(float(np.percentile(hedged_arr, 0.5)), uh.p05 - abs(uh.p05) * 0.3)
+    x_hi   = max(float(np.percentile(hedged_arr, 99.5)), uh.p95 + abs(uh.p95) * 0.3)
+    x_grid = np.linspace(x_lo, x_hi, 600)
+    y_h    = kde_h(x_grid)
+    y_uh = stats.norm.pdf(x_grid, loc=uh.mean, scale=uh.std)
+
+    ax_kde.fill_between(x_grid, y_h,  alpha=0.25, color=COLOR_H,  zorder=2)
+    ax_kde.fill_between(x_grid, y_uh, alpha=0.15, color=COLOR_UH, zorder=1)
+    ax_kde.plot(x_grid, y_h,  color=COLOR_H,  linewidth=2.2, zorder=4,
+                label=f"Hedged   \u03bc={h.mean:+.2f}  \u03c3={h.std:.2f}")
+    ax_kde.plot(x_grid, y_uh, color=COLOR_UH, linewidth=2.2, linestyle="--",
+                zorder=3, label=f"Unhedged \u03bc={uh.mean:+.2f}  \u03c3={uh.std:.2f}")
+
+    for val, ls in [(h.p05, ":"), (h.median, "-."), (h.p95, ":")]:
+        ax_kde.axvline(val, color=COLOR_H,  linestyle=ls, linewidth=1.5,
+                       alpha=0.75, zorder=3)
+    for val, ls in [(uh.p05, ":"), (uh.median, "-."), (uh.p95, ":")]:
+        ax_kde.axvline(val, color=COLOR_UH, linestyle=ls, linewidth=1.5,
+                       alpha=0.55, zorder=2)
+    ax_kde.axvline(0, color="#424242", linewidth=1.3, zorder=5,
+                   label="Break-even ($0)")
+
+    ax_kde.set_xlabel("Optimal Spread ($/MMBtu)", fontsize=12)
+    ax_kde.set_ylabel("Density", fontsize=12)
+    ax_kde.set_title(
+        f"Hedged vs Unhedged Distribution\n"
+        f"Variance reduction: {eff.variance_reduction:.1%}  \u00b7  "
+        f"VaR improvement: {eff.var_reduction:+.3f} $/MMBtu",
+        fontsize=12,
+    )
+    ax_kde.legend(fontsize=10, loc="upper left")
+    coverage_pct = eff.jkm_effective_coverage * 100
+    ax_kde.text(
+        0.02, 0.04,
+        f"JKM swap coverage: {coverage_pct:.1f}% of Netback JKM exposure"
+        f"  \u00b7  structural basis risk: {100 - coverage_pct:.1f}%",
+        transform=ax_kde.transAxes, fontsize=9, color="#616161",
+        bbox=dict(boxstyle="round,pad=0.3", facecolor="#FFF9C4", alpha=0.85),
+    )
+
+    # ── Panel 2: Hedge ratio sensitivity ─────────────────────────────────────
+    ratios    = [r.hedge_ratio * 100        for r in hedged_output.ratio_sensitivity]
+    var_vals  = [r.var_5pct                 for r in hedged_output.ratio_sensitivity]
+    cvar_vals = [r.cvar_5pct               for r in hedged_output.ratio_sensitivity]
+    vred_vals = [r.variance_reduction * 100 for r in hedged_output.ratio_sensitivity]
+
+    ax_ratio.plot(ratios, var_vals,  "o-",  color="#C62828", linewidth=2,
+                  markersize=6, label="VaR 5%")
+    ax_ratio.plot(ratios, cvar_vals, "s--", color="#AD1457", linewidth=2,
+                  markersize=6, label="CVaR 5%")
+    ax_ratio.set_xlabel("Hedge Ratio (%)")
+    ax_ratio.set_ylabel("Risk Metric ($/MMBtu)", fontsize=10)
+
+    ax2r = ax_ratio.twinx()
+    ax2r.plot(ratios, vred_vals, "^:", color="#1565C0", linewidth=2,
+              markersize=6, label="Var Red %")
+    ax2r.set_ylabel("Variance Reduction (%)", color="#1565C0", fontsize=10)
+    ax2r.tick_params(axis="y", labelcolor="#1565C0")
+    ax2r.set_ylim(bottom=0)
+
+    configured_h = (
+        spec.hh.hedge_ratio * 100  if spec.hh.enabled
+        else spec.jkm.hedge_ratio * 100 if spec.jkm.enabled
+        else 0.0
+    )
+    ax_ratio.axvline(configured_h, color="#2E7D32", linewidth=1.5,
+                     linestyle="--", alpha=0.80,
+                     label=f"Current h={configured_h:.0f}%")
+    lines1, labels1 = ax_ratio.get_legend_handles_labels()
+    lines2, labels2 = ax2r.get_legend_handles_labels()
+    ax_ratio.legend(lines1 + lines2, labels1 + labels2,
+                    fontsize=9, loc="lower right")
+    ax_ratio.set_title("Hedge Ratio Sensitivity", fontsize=12)
+
+    # ── Panel 3: Per-leg P&L attribution ─────────────────────────────────────
+    enabled_legs = [lp for lp in hedged_output.per_leg_pnl if lp.enabled]
+
+    if enabled_legs:
+        leg_labels = [lp.leg.upper() for lp in enabled_legs]
+        leg_means  = [lp.pnl_mean    for lp in enabled_legs]
+        leg_p05    = [lp.pnl_p05     for lp in enabled_legs]
+        leg_p95    = [lp.pnl_p95     for lp in enabled_legs]
+        y_pos_l    = np.arange(len(enabled_legs))
+        bar_colors = ["#2E7D32" if m >= 0 else "#C62828" for m in leg_means]
+        bars = ax_legs.barh(
+            y_pos_l, leg_means,
+            xerr=[
+                [m - p for m, p in zip(leg_means, leg_p05)],
+                [p - m for m, p in zip(leg_means, leg_p95)],
+            ],
+            color=bar_colors, edgecolor="white", linewidth=1,
+            height=0.55, alpha=0.85, capsize=5,
+        )
+        for bar, val in zip(bars, leg_means):
+            offset = 0.003
+            ha = "left" if val >= 0 else "right"
+            ax_legs.text(
+                val + (offset if val >= 0 else -offset),
+                bar.get_y() + bar.get_height() / 2,
+                f"{val:+.3f}", va="center", ha=ha,
+                fontsize=10, fontweight="bold",
+            )
+        ax_legs.axvline(0, color="#424242", linewidth=0.9)
+        ax_legs.set_yticks(y_pos_l)
+        ax_legs.set_yticklabels(leg_labels, fontsize=11)
+        ax_legs.set_xlabel("Mean P&L ($/MMBtu)")
+        ax_legs.set_title("Per-Leg P&L Attribution", fontsize=12)
+        ax_legs.text(
+            0.98, 0.04, "Error bars: P5 \u2013 P95",
+            transform=ax_legs.transAxes, ha="right",
+            fontsize=9, color="#757575",
+        )
+    else:
+        ax_legs.text(0.5, 0.5, "No enabled swap legs",
+                     ha="center", va="center",
+                     transform=ax_legs.transAxes,
+                     fontsize=12, color="#9E9E9E")
+        ax_legs.set_title("Per-Leg P&L Attribution", fontsize=12)
+
+    # ── Panel 4: Effectiveness metrics table ──────────────────────────────────
+    ax_table.axis("off")
+
+    table_rows = [
+        ["Mean ($/MMBtu)",
+         f"{uh.mean:+.3f}",         f"{h.mean:+.3f}",
+         f"{h.mean - uh.mean:+.3f}"],
+        ["Std Dev",
+         f"{uh.std:.3f}",           f"{h.std:.3f}",
+         f"{h.std - uh.std:+.3f}"],
+        ["VaR 5% ($/MMBtu)",
+         f"{uh.var_5pct:+.3f}",     f"{h.var_5pct:+.3f}",
+         f"{h.var_5pct - uh.var_5pct:+.3f}"],
+        ["CVaR 5% ($/MMBtu)",
+         f"{uh.cvar_5pct:+.3f}",    f"{h.cvar_5pct:+.3f}",
+         f"{h.cvar_5pct - uh.cvar_5pct:+.3f}"],
+        ["P(Spread > 0)",
+         f"{uh.prob_positive:.1%}",  f"{h.prob_positive:.1%}",
+         f"{h.prob_positive - uh.prob_positive:+.1%}"],
+        ["Sharpe (mean/std)",
+         f"{eff.sharpe_unhedged:.3f}", f"{eff.sharpe_hedged:.3f}",
+         f"{eff.sharpe_improvement:+.3f}"],
+        ["Variance Reduction", "--",
+         f"{eff.variance_reduction:.1%}", "--"],
+        ["Hedge Cost", "--",
+         f"{eff.hedge_cost:+.3f} $/MMBtu", "--"],
+    ]
+
+    tbl = ax_table.table(
+        cellText=table_rows,
+        colLabels=["Metric", "Unhedged", "Hedged", "\u0394"],
+        loc="center", cellLoc="center",
+    )
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(10)
+    tbl.scale(1, 1.5)
+
+    for j in range(4):
+        tbl[0, j].set_facecolor("#1565C0")
+        tbl[0, j].set_text_props(color="white", fontweight="bold")
+
+    for i, row in enumerate(table_rows, start=1):
+        delta_str = row[3]
+        if delta_str == "--":
+            continue
+        try:
+            delta_clean = (delta_str
+                           .replace("%", "")
+                           .replace(" $/MMBtu", "")
+                           .lstrip("+"))
+            delta = float(delta_clean)
+            lower_is_better = i in (2, 3, 4)
+            good = (delta < 0) if lower_is_better else (delta > 0)
+            tbl[i, 3].set_facecolor("#E8F5E9" if good else "#FFEBEE")
+        except ValueError:
+            pass
+
+    ax_table.set_title(
+        f"Effectiveness Summary  \u00b7  mode={spec.mode}  \u00b7  "
+        f"HH h={spec.hh.hedge_ratio:.0%}  \u00b7  "
+        f"JKM h={spec.jkm.hedge_ratio:.0%}  \u00b7  "
+        f"Charter FFA={'on' if spec.charter.enabled else 'off'}",
+        fontsize=11, pad=14,
+    )
+
+    if save_path:
+        fig.savefig(save_path, dpi=config.FIGURE_DPI, bbox_inches="tight")
+        print(f"[Visualizer] \u2713 Chart saved: {save_path}")
     return fig

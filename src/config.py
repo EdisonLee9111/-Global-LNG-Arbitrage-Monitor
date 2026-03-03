@@ -201,3 +201,53 @@ JERA_DOMESTIC_REVENUE_JPY = 1500.0  # JPY/MMBtu (conservative estimate)
 
 OUTPUT_DIR = "data"  # Chart and data output directory
 FIGURE_DPI = 150     # Output chart resolution
+
+
+# =============================================================================
+# 8. Swap Overlay Default Configuration
+# =============================================================================
+#
+# DEFAULT_SWAP_SPEC controls the swap overlay module (src/swap_overlay.py).
+#
+# mode:
+#   "auto"   — swap_rate for each leg = MC mean (theoretical fair value).
+#              Implied hedge cost = 0. Use for model-based pricing.
+#   "manual" — trader supplies swap_rate per leg from broker quotes.
+#              Difference from MC mean is the implied hedge cost / premium.
+#
+# Per-leg fields:
+#   enabled     — whether to include this leg in the overlay
+#   hedge_ratio — fraction of price exposure to hedge (0.0 – 1.0)
+#   swap_rate   — only used when mode == "manual" (None → falls back to auto)
+#
+# Design rationale:
+#   - HH + JKM are enabled by default (liquid markets, standard practice).
+#   - Charter FFA is disabled by default (less liquid, not always available).
+#   - FX forward is disabled by default (second-order for USD-settled trades).
+#   - basis_noise_std = 0 means no residual noise; set > 0 to stress-test.
+#
+DEFAULT_SWAP_SPEC: dict = {
+    "mode": "auto",
+    "hh": {
+        "enabled":     True,
+        "hedge_ratio": 0.8,
+        "swap_rate":   None,    # None → use MC mean
+    },
+    "jkm": {
+        "enabled":     True,
+        "hedge_ratio": 0.8,
+        "swap_rate":   None,
+    },
+    "charter": {
+        "enabled":     False,   # FFA — disable by default
+        "hedge_ratio": 0.5,
+        "swap_rate":   None,
+    },
+    "fx": {
+        "enabled":     False,   # USD/JPY forward — disable by default
+        "hedge_ratio": 0.5,
+        "swap_rate":   None,
+    },
+    "notional_mmbtu":  STANDARD_CARGO_SIZE_MMBTU,  # ≈ 3,744,000 MMBtu
+    "basis_noise_std": 0.0,     # no residual noise; set > 0 to stress-test
+}

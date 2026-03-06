@@ -1,6 +1,6 @@
-# Global LNG Arbitrage Monitor
+> **联动项目 / Related Project**：本项目可与 [Structural Event Study Framework for LNG Energy Markets](https://github.com/EdisonLee9111/Structural-Event-Study-Framework-for-LNG-Energy-Markets) 联动使用——前者提供结构性事件对 LNG 市场冲击的实证框架，后者提供套利价差与对冲的概率分布引擎，两者结合可实现「事件驱动 → 价差响应」的完整分析链路。
 
-> **Companion Project:** This monitor can be used together with the [Structural Event Study Framework for LNG Energy Markets](https://github.com/EdisonLee9111/Structural-Event-Study-Framework-for-LNG-Energy-Markets) — the event study framework provides structural shock identification and market state conditioning that can feed directly into the arbitrage signals generated here.
+# Global LNG Arbitrage Monitor
 
 A quantitative analytics pipeline for monitoring US Gulf Coast LNG export arbitrage opportunities to Europe and Asia. The system runs from raw market data ingestion through stochastic parameter modeling, correlation structure estimation, **10,000-scenario Monte Carlo simulation**, and **financial swap / FFA hedge overlay** — producing full spread / TCE probability distributions, Real Option valuation, hedge effectiveness analysis, and probabilistic trading signals.
 

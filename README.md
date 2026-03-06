@@ -1,4 +1,4 @@
-> **联动项目 / Related Project**：本项目可与 [Structural Event Study Framework for LNG Energy Markets](https://github.com/EdisonLee9111/Structural-Event-Study-Framework-for-LNG-Energy-Markets) 联动使用——前者提供结构性事件对 LNG 市场冲击的实证框架，后者提供套利价差与对冲的概率分布引擎，两者结合可实现「事件驱动 → 价差响应」的完整分析链路。
+> **Related Project**: This project is designed to work alongside the [Structural Event Study Framework for LNG Energy Markets](https://github.com/EdisonLee9111/Structural-Event-Study-Framework-for-LNG-Energy-Markets). The event study framework identifies and quantifies structural shocks to LNG markets, while this monitor provides the probabilistic spread and hedge distribution engine — together they form a complete **event-driven → spread-response** analytical pipeline.
 
 # Global LNG Arbitrage Monitor
 

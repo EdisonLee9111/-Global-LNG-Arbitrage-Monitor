@@ -1,4 +1,10 @@
-> **Related Project**: This project is designed to work alongside the [Structural Event Study Framework for LNG Energy Markets](https://github.com/EdisonLee9111/Structural-Event-Study-Framework-for-LNG-Energy-Markets). The event study framework identifies and quantifies structural shocks to LNG markets, while this monitor provides the probabilistic spread and hedge distribution engine — together they form a complete **event-driven → spread-response** analytical pipeline.
+> ## The "Alpha-Discovery" Ecosystem
+> This repository is **The Executioner** — one node in a three-part structural analysis pipeline for global LNG markets:
+> 1. **[LNG-Alpha-Feed](https://github.com/EdisonLee9111/LNG-Alpha-Feed)**: *The Radar*. Real-time Bluesky firehose ingestion → state-conditional sentiment signals anchored by live inventory/volatility/curve data.
+> 2. **[Structural Event Study Framework](https://github.com/EdisonLee9111/Structural-Event-Study-Framework-for-LNG-Energy-Markets)**: *The Laboratory*. Rigorous ex-post quantification of structural shocks — Hotelling T², placebo testing, convenience yield residuals.
+> 3. **Global LNG Arbitrage Monitor [This Repo]**: *The Executioner*. 10,000-scenario Monte Carlo spread engine with swap hedge overlay, converting structural views into probabilistic P&L distributions and trade signals.
+>
+> **Data flow**: Alpha-Feed surfaces real-time supply/demand events → Event Study quantifies their historical transmission channels → this Monitor prices the resulting spread distributions and generates hedged execution signals.
 
 # Global LNG Arbitrage Monitor
 
@@ -400,6 +406,13 @@ USD/JPY direction: `combined = Fed_net − BOJ_net`. `>0.3` → Bullish USD, `<�
 
 Also computes 20-day rolling correlation between a dynamic sentiment index and realized USD/JPY volatility.
 
+> **Integration note**: The static keyword-scoring approach here serves as a deterministic baseline. 
+> For production-grade real-time sentiment, this module is designed to be replaced by the 
+> state-conditional signal stream from [LNG-Alpha-Feed](https://github.com/EdisonLee9111/LNG-Alpha-Feed), 
+> which cross-references live inventory percentiles and curve backwardation against streaming social data 
+> to produce context-aware directional signals — eliminating the "same headline, opposite regime" problem 
+> that keyword-only approaches cannot handle.
+
 ---
 
 ### `src/visualizer.py`
@@ -485,14 +498,38 @@ Additional risk overlays:
 ## Notes
 
 - **JKM data**: S&P Global Platts JKM is paid data. The synthetic proxy (TTF + premium + seasonal noise) is adequate for spread direction analysis but should be replaced with a real feed in production — and the JKM–TTF correlation override applied in Step 4.
-- **Central bank minutes**: the pipeline uses static sample text from `config.py`. In production, point `fetch_central_bank_text()` at a live scraper or EDGAR API feed.
+- **Central bank minutes**: the pipeline uses static sample text from `config.py`. See [Alpha-Feed Live Integration](#alpha-feed-live-integration-planned) in the Roadmap for the planned production replacement.
 - **Vectorized consistency**: `vectorized_netback()` in the MC engine has been verified against the scalar `LNGCalculator.calculate_netback()` to `1e-8` tolerance across all three routes.
 - **TCE insight**: raw spread can be misleading — a route with higher spread but longer voyage may have worse daily profitability. The TCE metric normalizes for this, making cross-route comparison economically meaningful.
 - **Swap basis risk**: even at 100% hedge ratio, the JKM swap only covers `JKM × (1 − BOG_ratio)` ≈ 95–98% of Netback's JKM exposure. The residual 2–5% from BOG decay, shipping cost allocation, and canal fee dilution is irreducible structural basis risk — reported explicitly in both console output and `swap_overlay_report.md`.
+- **Ecosystem coherence**: The three Alpha-Discovery repositories share a common parameter 
+  vocabulary: `inventory_percentile`, `curve_backwardation`, `implied_vol_regime` appear as 
+  state variables in Alpha-Feed's context injection, as conditioning variables in the Event 
+  Study's state-dependent impulse responses, and as distributional regime switches in this 
+  Monitor's MC engine. This is by design — it ensures that a "tight market" means the same 
+  thing across all three systems.
 
 ---
 
 ## Roadmap
+
+### Alpha-Feed Live Integration *(planned)*
+
+The current `macro_sentiment.py` ingests static central bank text. The planned integration 
+replaces this with a live WebSocket/Redis subscriber consuming Alpha-Feed's output stream:
+
+| Current (Baseline) | Planned (Integrated) |
+|---------------------|----------------------|
+| Static Fed/BOJ text samples | Real-time Bluesky firehose events |
+| TextBlob + keyword scoring | State-conditional LLM with inventory/volatility anchoring |
+| Sentiment → FX correlation only | Event type → spread transmission channel mapping |
+| Manual trigger | Continuous background ingestion with dynamic polling |
+
+The key architectural change: Alpha-Feed's output includes a `market_state` snapshot 
+(inventory percentile, curve shape, implied vol regime) at the moment of each event. 
+This allows the Monte Carlo engine to **condition its parameter distributions on the 
+current regime** rather than using unconditional historical fits — effectively making 
+Steps 2–3 state-dependent.
 
 ### Asian Swap Module *(under consideration)*
 

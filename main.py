@@ -12,6 +12,8 @@ Usage:
     python main.py
 """
 
+import argparse
+import json
 import os
 import sys
 import warnings
@@ -388,13 +390,13 @@ def run_lng_economics(market_data):
 
 def run_nlp_analysis(market_data):
     """
-    Step 5: NLP Macro Sentiment Analysis
+    Step 7: NLP Macro Sentiment Analysis
     - Analyze Fed/BOJ meeting minutes text
     - Calculate hawk/dove tendency
     - Assess impact on USD/JPY
     """
     print("\n" + "█" * 60)
-    print("  STEP 6: NLP Macro Sentiment Analysis")
+    print("  STEP 7: NLP Macro Sentiment Analysis")
     print("█" * 60)
     
     # Fetch central bank text
@@ -429,33 +431,17 @@ def run_nlp_analysis(market_data):
     }
 
 
-def run_swap_overlay_step(mc_output):
-    """
-    Step 6-SW: Financial Swap / FFA Overlay on Optimal Spread Distribution.
-    Applies HH + JKM price swaps (and optionally Charter FFA) on top of the
-    physical spread distribution.  Zero-invasive: reads mc_output, produces
-    a HedgedOutput with full effectiveness metrics.
-    """
-    print("\n" + "█" * 60)
-    print("  STEP 6-SW: Swap Overlay (Hedge Analysis)")
-    print("█" * 60)
+# Removed run_swap_overlay_step as its logic was moved inline to main() to support passing spec
 
-    hedged_output = run_swap_overlay(
-        mc_output=mc_output,
-        output_dir=config.OUTPUT_DIR,
-    )
-
-    print_swap_summary(hedged_output)
-    return hedged_output
 
 
 def generate_charts(market_data, lng_results, nlp_results, mc_output=None,
                     hedged_output=None):
     """
-    Step 7: Generate Professional Charts (01–04 classic, 05–07 MC, 08 Swap)
+    Step 8: Generate Professional Charts (01–04 classic, 05–07 MC, 08 Swap)
     """
     print("\n" + "█" * 60)
-    print("  STEP 7: Generating Visualization Charts")
+    print("  STEP 8: Generating Visualization Charts")
     print("█" * 60)
     
     # Chart 1: Global natural gas spreads
@@ -527,11 +513,11 @@ def generate_charts(market_data, lng_results, nlp_results, mc_output=None,
 
 def print_trading_signal(lng_results, nlp_results):
     """
-    Step 7: Output Trading Signal
+    Step 8a: Output Trading Signal
     Integrate LNG arbitrage analysis and macro sentiment to provide recommendations.
     """
     print("\n" + "█" * 60)
-    print("  STEP 8: Trading Signal (TRADING SIGNAL)")
+    print("  STEP 8a: Trading Signal (TRADING SIGNAL)")
     print("█" * 60)
     
     nb_eu = lng_results["nb_europe"]
@@ -717,9 +703,50 @@ def print_probabilistic_trading_signal(mc_output, nlp_results):
     print()
 
 
-def main():
+def parse_args():
+    parser = argparse.ArgumentParser(description="Global LNG Arbitrage Monitor")
+    parser.add_argument("--charter-rate", type=float, default=None,
+                        help="Override current charter rate ($/day)")
+    parser.add_argument("--fuel-cost", type=float, default=None,
+                        help="Override current fuel cost ($/day)")
+    parser.add_argument("--swap-mode", choices=["auto", "manual"], default=None,
+                        help="Swap valuation mode")
+    parser.add_argument("--hedge-ratio", type=float, default=None,
+                        help="Uniform hedge ratio (0.0 - 1.0) for enabled swap legs")
+    parser.add_argument("--override", type=str, default=None,
+                        help="Path to JSON file containing trader overrides for parameters")
+    parser.add_argument("--output-dir", type=str, default=None,
+                        help="Custom output directory")
+    return parser.parse_args()
+
+
+def main(args=None):
     """Main program entry"""
     try:
+        if args is None:
+            # Fallback for manual calls, shouldn't normally hit
+            class DummyArgs: pass
+            args = DummyArgs()
+            args.charter_rate = None
+            args.fuel_cost = None
+            args.swap_mode = None
+            args.hedge_ratio = None
+            args.override = None
+            args.output_dir = None
+
+        # Apply output dir override
+        if args.output_dir:
+            config.OUTPUT_DIR = args.output_dir
+
+        # Load parameter overrides
+        overrides = None
+        if args.override:
+            if os.path.exists(args.override):
+                with open(args.override, "r", encoding="utf-8") as f:
+                    overrides = json.load(f)
+            else:
+                print(f"Warning: Override file {args.override} not found.")
+
         # Banner
         print_banner()
         
@@ -729,28 +756,59 @@ def main():
         # Step 1-5: Market data → parameter modeling → validation
         market_data = run_market_data_pipeline()
         run_step1_parameter_inventory(market_data)
-        run_step2_distribution_selection(market_data)
-        step3_result = run_step3_parameter_estimation(market_data)
+        run_step2_distribution_selection(
+            market_data,
+            current_charter_rate=args.charter_rate,
+            current_fuel_cost=args.fuel_cost
+        )
+        step3_result = run_step3_parameter_estimation(
+            market_data,
+            current_charter_rate=args.charter_rate,
+            current_fuel_cost=args.fuel_cost,
+            overrides=overrides
+        )
         step4_result = run_step4_correlation_structure(market_data)
         step5_result = run_step5_validation(market_data, step3_result, step4_result)
         
         # Step 6-MC: Monte Carlo Spread Distribution (Layer 2)
         mc_output = run_mc_spread_analysis(step5_result)
 
+        # Build custom SwapSpec if CLI arguments dictate
+        swap_spec = None
+        if args.swap_mode or args.hedge_ratio is not None:
+            from src.swap_overlay import _build_spec_from_config
+            swap_spec = _build_spec_from_config()
+            if args.swap_mode:
+                swap_spec.mode = args.swap_mode
+            if args.hedge_ratio is not None:
+                swap_spec.hh.hedge_ratio = args.hedge_ratio
+                swap_spec.jkm.hedge_ratio = args.hedge_ratio
+                swap_spec.charter.hedge_ratio = args.hedge_ratio
+                swap_spec.fx.hedge_ratio = args.hedge_ratio
+
         # Step 6-SW: Swap / FFA overlay on optimal spread distribution
-        hedged_output = run_swap_overlay_step(mc_output)
+        # Modified run_swap_overlay_step to accept swap_spec
+        print("\n" + "█" * 60)
+        print("  STEP 6-SW: Swap Overlay (Hedge Analysis)")
+        print("█" * 60)
+        hedged_output = run_swap_overlay(
+            mc_output=mc_output,
+            spec=swap_spec,
+            output_dir=config.OUTPUT_DIR,
+        )
+        print_swap_summary(hedged_output)
 
         # Step 6: Single-point LNG economics (reference baseline)
         lng_results = run_lng_economics(market_data)
 
-        # Step 6: NLP macro sentiment analysis
+        # Step 7: NLP macro sentiment analysis
         nlp_results = run_nlp_analysis(market_data)
 
-        # Step 7: Generate charts (including MC + Swap overlay charts)
+        # Step 8: Generate charts (including MC + Swap overlay charts)
         generate_charts(market_data, lng_results, nlp_results, mc_output,
                         hedged_output)
 
-        # Step 8: Output trading signals
+        # Step 8a/8b: Output trading signals
         print_trading_signal(lng_results, nlp_results)
         print_probabilistic_trading_signal(mc_output, nlp_results)
         
@@ -771,5 +829,6 @@ def main():
 
 
 if __name__ == "__main__":
-    exit_code = main()
+    args = parse_args()
+    exit_code = main(args)
     sys.exit(exit_code)

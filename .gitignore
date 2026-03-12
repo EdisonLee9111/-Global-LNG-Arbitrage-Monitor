@@ -57,3 +57,4 @@ data/*.jpeg
 
 # OS
 Thumbs.db
+.pytest_cache/

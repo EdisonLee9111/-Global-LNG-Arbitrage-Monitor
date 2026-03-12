@@ -165,7 +165,7 @@ class LNGCalculator:
         float
             Evaporated loss calorific value (MMBtu)
         """
-        rate = boil_off_rate or self.boil_off_rate
+        rate = boil_off_rate if boil_off_rate is not None else self.boil_off_rate
         
         # Exponential decay model (compound calculation)
         remaining = volume_mmbtu * (1 - rate) ** days

@@ -1,6 +1,6 @@
 > ## The "Alpha-Discovery" Ecosystem
 > This repository is **The Executioner** — one node in a three-part structural analysis pipeline for global LNG markets:
-> 1. **[LNG-Alpha-Feed](https://github.com/EdisonLee9111/LNG-Alpha-Feed)**: *The Radar*. Real-time Bluesky firehose ingestion → state-conditional sentiment signals anchored by live inventory/volatility/curve data.
+> 1. **[LNG-Alpha-Feed](https://github.com/EdisonLee9111/LNG-Alpha-Feed-trading-signal-system-design)**: *The Radar*. Real-time Bluesky firehose ingestion → state-conditional sentiment signals anchored by live inventory/volatility/curve data.
 > 2. **[Structural Event Study Framework](https://github.com/EdisonLee9111/Structural-Event-Study-Framework-for-LNG-Energy-Markets)**: *The Laboratory*. Rigorous ex-post quantification of structural shocks — Hotelling T², placebo testing, convenience yield residuals.
 > 3. **Global LNG Arbitrage Monitor [This Repo]**: *The Executioner*. 10,000-scenario Monte Carlo spread engine with swap hedge overlay, converting structural views into probabilistic P&L distributions and trade signals.
 >

@@ -232,21 +232,29 @@ DEFAULT_SWAP_SPEC: dict = {
         "enabled":     True,
         "hedge_ratio": 0.8,
         "swap_rate":   None,    # None → use MC mean
+        "settlement":  "asian",          # Asian (average-rate) swap
+        "averaging_start_day": 25,       # first day of averaging window
+        "averaging_days": 20,            # trading days in averaging window
     },
     "jkm": {
         "enabled":     True,
         "hedge_ratio": 0.8,
         "swap_rate":   None,
+        "settlement":  "asian",          # Asian (average-rate) swap
+        "averaging_start_day": 25,
+        "averaging_days": 20,
     },
     "charter": {
         "enabled":     False,   # FFA — disable by default
         "hedge_ratio": 0.5,
         "swap_rate":   None,
+        "settlement":  "european",       # FFA is European-style
     },
     "fx": {
         "enabled":     False,   # USD/JPY forward — disable by default
         "hedge_ratio": 0.5,
         "swap_rate":   None,
+        "settlement":  "european",       # FX forward is European-style
     },
     "notional_mmbtu":  STANDARD_CARGO_SIZE_MMBTU,  # ≈ 3,744,000 MMBtu
     "basis_noise_std": 0.0,     # no residual noise; set > 0 to stress-test

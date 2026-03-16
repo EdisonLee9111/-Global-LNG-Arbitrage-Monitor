@@ -854,6 +854,21 @@ def plot_hedge_overlay(
     )
     ax_kde.legend(fontsize=10, loc="upper left")
     coverage_pct = eff.jkm_effective_coverage * 100
+    # Settlement type annotation
+    settle_label = ""
+    for ln in ("hh", "jkm"):
+        leg = getattr(spec, ln)
+        if leg.enabled and leg.settlement == "asian":
+            settle_label = f"Settlement: Asian (\u0394={leg.averaging_days}d)"
+            break
+    if not settle_label:
+        settle_label = "Settlement: European"
+    ax_kde.text(
+        0.02, 0.10,
+        settle_label,
+        transform=ax_kde.transAxes, fontsize=9, color="#1565C0",
+        bbox=dict(boxstyle="round,pad=0.3", facecolor="#E3F2FD", alpha=0.85),
+    )
     ax_kde.text(
         0.02, 0.04,
         f"JKM swap coverage: {coverage_pct:.1f}% of Netback JKM exposure"

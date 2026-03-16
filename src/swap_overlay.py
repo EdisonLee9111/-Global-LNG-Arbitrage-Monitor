@@ -73,6 +73,9 @@ class LegSpec:
     enabled: bool = False
     hedge_ratio: float = 0.8        # fraction of exposure to hedge, 0.0 – 1.0
     swap_rate: float | None = None  # None → auto-resolve to MC mean (fair value)
+    settlement: str = "european"          # "european" | "asian"
+    averaging_start_day: int = 25         # first day of averaging window
+    averaging_days: int = 20              # number of trading days in window
 
 
 @dataclass
@@ -155,6 +158,8 @@ class HedgeEffectiveness:
     prob_loss_change: float       # P(hedged<0) − P(unhedged<0)  (− = improvement)
     jkm_effective_coverage: float # fraction of JKM exposure actually hedged
     basis_risk_note: str          # human-readable structural basis risk description
+    settlement_basis_std: float = 0.0             # std(spot_T − avg_equivalent), analytic
+    asian_variance_ratios: Dict[str, float] = field(default_factory=dict)  # per-leg variance_ratio
 
 
 @dataclass
@@ -236,11 +241,16 @@ def _build_rt_days_optimal(
 def resolve_swap_rates(
     spec: SwapSpec,
     scenarios: pd.DataFrame,
+    eff_prices: Optional[Dict[str, np.ndarray]] = None,
 ) -> Dict[str, float]:
     """
     Determine the effective swap / FFA fixed rate for each leg.
 
-    "auto"   → rate = mean(MC distribution)  ≡ theoretical fair value.
+    "auto"   → rate = mean(effective prices)  ≡ theoretical fair value.
+               When Asian settlement is active, eff_prices contains the
+               variance-compressed arrays so the fair rate is computed on
+               those (for OU, E[avg] = E[terminal] so the result is identical;
+               for GBM fallback they differ due to Jensen's inequality).
     "manual" → rate = LegSpec.swap_rate (must not be None for enabled legs).
 
     Disabled legs are included in the output dict (rate = 0.0) for auditability.
@@ -256,15 +266,17 @@ def resolve_swap_rates(
         "fx":      "USD_JPY",
     }
 
-    def _resolve(leg: LegSpec, col: str) -> float:
+    def _resolve(leg: LegSpec, leg_name: str, col: str) -> float:
         if not leg.enabled:
             return 0.0
         if spec.mode == "auto" or leg.swap_rate is None:
+            if eff_prices and leg_name in eff_prices:
+                return float(np.mean(eff_prices[leg_name]))
             return float(np.mean(scenarios[col].values))
         return float(leg.swap_rate)
 
     return {
-        name: _resolve(getattr(spec, name), col_map[name])
+        name: _resolve(getattr(spec, name), name, col_map[name])
         for name in col_map
     }
 
@@ -280,6 +292,7 @@ def compute_swap_pnl(
     route_results: List[MCRouteResult],
     optimal: OptimalStrategyResult,
     rng: Optional[np.random.Generator] = None,
+    eff_prices: Optional[Dict[str, np.ndarray]] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute total swap P&L in $/MMBtu for all N scenarios simultaneously.
@@ -309,6 +322,9 @@ def compute_swap_pnl(
     ----------
     rng : numpy Generator or None
         Passed to the optional basis noise term.  Created internally if None.
+    eff_prices : dict or None
+        Effective (Asian-adjusted) price arrays keyed by leg name.
+        If None, raw scenario columns are used (European behavior).
 
     Returns
     -------
@@ -319,10 +335,11 @@ def compute_swap_pnl(
         to derive hedged_tce from hedged_spread).
     """
     n = len(scenarios)
-    hh_price     = scenarios["HH_Price"].values
-    jkm_price    = scenarios["JKM_Price"].values
-    charter_rate = scenarios["Charter_Rate"].values
-    usd_jpy      = scenarios["USD_JPY"].values
+    _ep = eff_prices or {}
+    hh_price     = _ep.get("hh",      scenarios["HH_Price"].values)
+    jkm_price    = _ep.get("jkm",     scenarios["JKM_Price"].values)
+    charter_rate = _ep.get("charter",  scenarios["Charter_Rate"].values)
+    usd_jpy      = _ep.get("fx",      scenarios["USD_JPY"].values)
     cargo_size   = spec.notional_mmbtu
 
     rt_days = _build_rt_days_optimal(route_results, optimal.chosen_route_idx)
@@ -387,6 +404,8 @@ def compute_hedge_effectiveness(
     hedged_spread: np.ndarray,
     spec: SwapSpec,
     route_results: List[MCRouteResult],
+    adjustments: Optional[Dict] = None,
+    scenarios: Optional[pd.DataFrame] = None,
 ) -> HedgeEffectiveness:
     """
     Compute comprehensive effectiveness metrics comparing the two distributions.
@@ -394,6 +413,13 @@ def compute_hedge_effectiveness(
     The structural basis risk note is computed from the mean BOG remaining
     ratio across all routes, which determines how much of the JKM exposure in
     Netback is actually covered by a JKM price swap.
+
+    Parameters
+    ----------
+    adjustments : dict or None
+        Per-leg AsianAdjustment objects (from build_asian_adjustments).
+    scenarios : DataFrame or None
+        Raw MC scenarios, needed to compute settlement_basis_std.
     """
     var_uh  = float(np.var(unhedged_spread, ddof=1))
     var_h   = float(np.var(hedged_spread,   ddof=1))
@@ -431,6 +457,23 @@ def compute_hedge_effectiveness(
         f"volume), introducing an additional ≈{residual_pct:.1f}% approximation."
     )
 
+    # Settlement basis std: analytic from largest-impact leg
+    col_map_eff = {
+        "hh": "HH_Price", "jkm": "JKM_Price",
+        "charter": "Charter_Rate", "fx": "USD_JPY",
+    }
+    max_basis = 0.0
+    variance_ratios: Dict[str, float] = {}
+    if adjustments and scenarios is not None:
+        for leg_name, adj in adjustments.items():
+            if adj is not None:
+                col = col_map_eff.get(leg_name)
+                if col and col in scenarios.columns:
+                    spot_std = float(np.std(scenarios[col].values, ddof=1))
+                    basis = spot_std * (1.0 - adj.sigma_scale)
+                    max_basis = max(max_basis, basis)
+                    variance_ratios[leg_name] = adj.variance_ratio
+
     return HedgeEffectiveness(
         variance_reduction=1.0 - (var_h / var_uh) if var_uh > 0 else 0.0,
         var_reduction=var5_h - var5_uh,
@@ -445,6 +488,8 @@ def compute_hedge_effectiveness(
         ),
         jkm_effective_coverage=mean_coverage,
         basis_risk_note=basis_note,
+        settlement_basis_std=max_basis,
+        asian_variance_ratios=variance_ratios,
     )
 
 
@@ -460,6 +505,7 @@ def compute_ratio_sensitivity(
     optimal: OptimalStrategyResult,
     ratios: Optional[List[float]] = None,
     seed: int = 42,
+    eff_prices: Optional[Dict[str, np.ndarray]] = None,
 ) -> List[RatioSensitivityRow]:
     """
     Sweep over uniform hedge ratios to show how effectiveness metrics change.
@@ -467,6 +513,11 @@ def compute_ratio_sensitivity(
     At each ratio h, all enabled legs are set to h (uniform sweep for
     comparability across legs).  The full P&L overlay is re-computed cheaply
     via NumPy broadcasting.
+
+    Parameters
+    ----------
+    eff_prices : dict or None
+        Effective (Asian-adjusted) price arrays keyed by leg name.
 
     Returns
     -------
@@ -484,27 +535,36 @@ def compute_ratio_sensitivity(
                 enabled=spec.hh.enabled,
                 hedge_ratio=h,
                 swap_rate=spec.hh.swap_rate,
+                settlement=spec.hh.settlement,
+                averaging_start_day=spec.hh.averaging_start_day,
+                averaging_days=spec.hh.averaging_days,
             ),
             jkm=LegSpec(
                 enabled=spec.jkm.enabled,
                 hedge_ratio=h,
                 swap_rate=spec.jkm.swap_rate,
+                settlement=spec.jkm.settlement,
+                averaging_start_day=spec.jkm.averaging_start_day,
+                averaging_days=spec.jkm.averaging_days,
             ),
             charter=LegSpec(
                 enabled=spec.charter.enabled,
                 hedge_ratio=h,
                 swap_rate=spec.charter.swap_rate,
+                settlement=spec.charter.settlement,
             ),
             fx=LegSpec(
                 enabled=spec.fx.enabled,
                 hedge_ratio=h,
                 swap_rate=spec.fx.swap_rate,
+                settlement=spec.fx.settlement,
             ),
             notional_mmbtu=spec.notional_mmbtu,
             basis_noise_std=spec.basis_noise_std,
         )
         pnl, _ = compute_swap_pnl(
-            swept_spec, rates, scenarios, route_results, optimal, rng
+            swept_spec, rates, scenarios, route_results, optimal, rng,
+            eff_prices=eff_prices,
         )
         hedged = unhedged + pnl
 
@@ -537,6 +597,7 @@ def compute_per_leg_pnl(
     scenarios: pd.DataFrame,
     route_results: List[MCRouteResult],
     optimal: OptimalStrategyResult,
+    eff_prices: Optional[Dict[str, np.ndarray]] = None,
 ) -> List[PerLegPnL]:
     """
     Compute isolated P&L statistics for each swap / FFA leg.
@@ -544,14 +605,21 @@ def compute_per_leg_pnl(
     Charter FFA P&L is converted to $/MMBtu (via rt_days / cargo_size) so all
     legs are expressed on a consistent spread-contribution basis.
 
+    Parameters
+    ----------
+    eff_prices : dict or None
+        Effective (Asian-adjusted) price arrays keyed by leg name.
+        If None, raw scenario columns are used (European behavior).
+
     Returns
     -------
     List[PerLegPnL] in order: hh, jkm, charter, fx.
     """
-    hh_price     = scenarios["HH_Price"].values
-    jkm_price    = scenarios["JKM_Price"].values
-    charter_rate = scenarios["Charter_Rate"].values
-    usd_jpy      = scenarios["USD_JPY"].values
+    _ep = eff_prices or {}
+    hh_price     = _ep.get("hh",      scenarios["HH_Price"].values)
+    jkm_price    = _ep.get("jkm",     scenarios["JKM_Price"].values)
+    charter_rate = _ep.get("charter",  scenarios["Charter_Rate"].values)
+    usd_jpy      = _ep.get("fx",      scenarios["USD_JPY"].values)
     cargo_size   = spec.notional_mmbtu
     n = len(scenarios)
 
@@ -623,6 +691,7 @@ def compute_per_leg_pnl(
 def run_swap_overlay(
     mc_output: MCSpreadOutput,
     spec: Optional[SwapSpec] = None,
+    step3_estimates: Optional[List] = None,
     seed: int = 42,
     output_dir: Optional[str] = None,
 ) -> HedgedOutput:
@@ -640,6 +709,10 @@ def run_swap_overlay(
         optimal_strategy (for optimal_spread / optimal_tce / chosen_route_idx).
     spec : SwapSpec or None
         Hedging configuration.  None → build from config.DEFAULT_SWAP_SPEC.
+    step3_estimates : list of ParameterDistribution or None
+        Step 3 parameter estimates.  Required for Asian swap settlement
+        (provides κ for OU variance ratio computation).  If None, all legs
+        behave as European (no Asian adjustment).
     seed : int
         RNG seed for optional basis noise.
     output_dir : str or None
@@ -655,13 +728,39 @@ def run_swap_overlay(
     optimal       = mc_output.optimal_strategy
     route_results = mc_output.route_results
 
-    # Step 1: Resolve fixed swap rates
-    rates = resolve_swap_rates(spec, scenarios)
+    # Asian adjustment: build variance-compressed effective price arrays
+    from .asian_adjustment import build_asian_adjustments, to_asian_equivalent, validate_asian_adjustments
+
+    adjustments = build_asian_adjustments(step3_estimates, spec) if step3_estimates else {}
+
+    # Sanity checks (Step 6a)
+    if adjustments:
+        adj_warnings = validate_asian_adjustments(adjustments)
+        for w in adj_warnings:
+            print(f"  [WARN] Asian adjustment: {w}")
+
+    col_map: Dict[str, str] = {
+        "hh": "HH_Price", "jkm": "JKM_Price",
+        "charter": "Charter_Rate", "fx": "USD_JPY",
+    }
+    eff_prices: Dict[str, np.ndarray] = {}
+    for leg_name, col in col_map.items():
+        adj = adjustments.get(leg_name)
+        if adj is not None:
+            eff_prices[leg_name] = to_asian_equivalent(
+                scenarios[col].values, adj.sigma_scale
+            )
+        else:
+            eff_prices[leg_name] = scenarios[col].values
+
+    # Step 1: Resolve fixed swap rates (uses eff_prices for auto mode)
+    rates = resolve_swap_rates(spec, scenarios, eff_prices=eff_prices)
 
     # Step 2: Vectorised swap P&L (all N scenarios in one NumPy pass)
     rng = np.random.default_rng(seed)
     total_pnl, rt_days = compute_swap_pnl(
-        spec, rates, scenarios, route_results, optimal, rng
+        spec, rates, scenarios, route_results, optimal, rng,
+        eff_prices=eff_prices,
     )
 
     # Step 3: Overlay → hedged spread and TCE
@@ -674,16 +773,21 @@ def run_swap_overlay(
 
     # Step 4a: Hedge effectiveness
     effectiveness = compute_hedge_effectiveness(
-        optimal.optimal_spread, hedged_spread, spec, route_results
+        optimal.optimal_spread, hedged_spread, spec, route_results,
+        adjustments=adjustments, scenarios=scenarios,
     )
 
     # Step 4b: Hedge ratio sensitivity sweep
     ratio_sensitivity = compute_ratio_sensitivity(
-        spec, rates, scenarios, route_results, optimal, seed=seed
+        spec, rates, scenarios, route_results, optimal, seed=seed,
+        eff_prices=eff_prices,
     )
 
     # Per-leg P&L attribution
-    per_leg = compute_per_leg_pnl(spec, rates, scenarios, route_results, optimal)
+    per_leg = compute_per_leg_pnl(
+        spec, rates, scenarios, route_results, optimal,
+        eff_prices=eff_prices,
+    )
 
     result = HedgedOutput(
         swap_spec=spec,
@@ -714,6 +818,9 @@ def _build_spec_from_config() -> SwapSpec:
             enabled=d.get("enabled", False),
             hedge_ratio=d.get("hedge_ratio", 0.8),
             swap_rate=d.get("swap_rate", None),
+            settlement=d.get("settlement", "european"),
+            averaging_start_day=d.get("averaging_start_day", 25),
+            averaging_days=d.get("averaging_days", 20),
         )
 
     return SwapSpec(
@@ -743,6 +850,22 @@ def print_swap_summary(output: HedgedOutput) -> None:
 
     print(f"\n  Mode: {output.swap_spec.mode}  |  "
           f"Notional: {output.swap_spec.notional_mmbtu:,.0f} MMBtu")
+
+    # ── Settlement structure ──
+    settle_parts = []
+    for leg_name in ("hh", "jkm"):
+        leg = getattr(output.swap_spec, leg_name)
+        if leg.enabled and leg.settlement == "asian":
+            vr = eff.asian_variance_ratios.get(leg_name)
+            vr_str = f"{vr:.2f}" if vr is not None else "n/a"
+            settle_parts.append(f"{leg_name.upper()}={vr_str}")
+    if settle_parts:
+        leg_ref = getattr(output.swap_spec, "hh")
+        print(f"  Settlement: asian "
+              f"(\u0394={leg_ref.averaging_days}d, start=d{leg_ref.averaging_start_day})"
+              f"  |  Variance ratio: {', '.join(settle_parts)}")
+    else:
+        print(f"  Settlement: european")
 
     # ── Per-leg configuration ──
     print(f"\n  {'Leg':<10s}  {'Status':<5s}  {'Swap Rate':>12s}  "
@@ -901,6 +1024,35 @@ def _write_hedge_report(output: HedgedOutput, path: str) -> None:
             f"| {row.variance_reduction:.1%} | {row.hedge_cost:+.3f} "
             f"| {row.prob_positive:.1%} |"
         )
+
+    # ── Settlement Structure section ──
+    lines += [
+        "",
+        "---",
+        "",
+        "## Settlement Structure",
+        "",
+        "| Leg | Settlement | Avg Start | Avg Days | Var Ratio | \u03c3 Scale |",
+        "| --- | :---: | ---: | ---: | ---: | ---: |",
+    ]
+    for leg_name in ("hh", "jkm", "charter", "fx"):
+        leg = getattr(spec, leg_name)
+        if leg.settlement == "asian":
+            vr = eff.asian_variance_ratios.get(leg_name, 0.0)
+            ss = vr ** 0.5 if vr > 0 else 1.0
+            lines.append(
+                f"| {leg_name} | asian | {leg.averaging_start_day} "
+                f"| {leg.averaging_days} | {vr:.3f} | {ss:.3f} |"
+            )
+        else:
+            lines.append(
+                f"| {leg_name} | european | \u2013 | \u2013 | 1.000 | 1.000 |"
+            )
+    lines.append("")
+    lines.append(
+        f"Settlement basis std (spot vs average): "
+        f"${eff.settlement_basis_std:.3f}/MMBtu"
+    )
 
     lines += [
         "",

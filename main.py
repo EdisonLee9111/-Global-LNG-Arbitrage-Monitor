@@ -715,6 +715,9 @@ def parse_args():
                         help="Uniform hedge ratio (0.0 - 1.0) for enabled swap legs")
     parser.add_argument("--override", type=str, default=None,
                         help="Path to JSON file containing trader overrides for parameters")
+    parser.add_argument("--swap-settlement",
+                        choices=["european", "asian"], default=None,
+                        help="Override swap settlement type for all enabled legs")
     parser.add_argument("--output-dir", type=str, default=None,
                         help="Custom output directory")
     return parser.parse_args()
@@ -732,6 +735,7 @@ def main(args=None):
             args.swap_mode = None
             args.hedge_ratio = None
             args.override = None
+            args.swap_settlement = None
             args.output_dir = None
 
         # Apply output dir override
@@ -775,7 +779,7 @@ def main(args=None):
 
         # Build custom SwapSpec if CLI arguments dictate
         swap_spec = None
-        if args.swap_mode or args.hedge_ratio is not None:
+        if args.swap_mode or args.hedge_ratio is not None or args.swap_settlement:
             from src.swap_overlay import _build_spec_from_config
             swap_spec = _build_spec_from_config()
             if args.swap_mode:
@@ -785,6 +789,9 @@ def main(args=None):
                 swap_spec.jkm.hedge_ratio = args.hedge_ratio
                 swap_spec.charter.hedge_ratio = args.hedge_ratio
                 swap_spec.fx.hedge_ratio = args.hedge_ratio
+            if args.swap_settlement:
+                swap_spec.hh.settlement = args.swap_settlement
+                swap_spec.jkm.settlement = args.swap_settlement
 
         # Step 6-SW: Swap / FFA overlay on optimal spread distribution
         # Modified run_swap_overlay_step to accept swap_spec
@@ -794,6 +801,7 @@ def main(args=None):
         hedged_output = run_swap_overlay(
             mc_output=mc_output,
             spec=swap_spec,
+            step3_estimates=step3_result["estimates"],
             output_dir=config.OUTPUT_DIR,
         )
         print_swap_summary(hedged_output)
